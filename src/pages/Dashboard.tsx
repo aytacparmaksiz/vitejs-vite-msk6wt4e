@@ -271,8 +271,9 @@ const Dashboard = () => {
         {pricesLoading ? 'Güncelleniyor...' : '🔄 Fiyatları Yenile'}
       </button>
 
-     {/* Alt Navigasyon */}
-     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
+    
+      {/* Alt Navigasyon */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
         <button onClick={() => navigate('/')} style={{ background: 'none', color: 'var(--accent)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
           <span style={{ fontSize: '20px' }}>📊</span> Portföy
         </button>
@@ -283,6 +284,7 @@ const Dashboard = () => {
           <span style={{ fontSize: '20px' }}>➕</span> Varlık Ekle
         </button>
       </div>
+    </div>
   )
 }
 
