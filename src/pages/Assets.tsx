@@ -30,12 +30,10 @@ const Assets = () => {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  // Yeni varlık formu
   const [form, setForm] = useState({
     type: 'hisse', name: '', symbol: '', quantity: '', avg_cost: '', manual_value: ''
   })
 
-  // İşlem modalı
   const [txAsset, setTxAsset] = useState<any | null>(null)
   const [txType, setTxType] = useState<'buy' | 'sell'>('buy')
   const [txForm, setTxForm] = useState({ quantity: '', price: '', date: new Date().toISOString().split('T')[0], note: '' })
@@ -71,7 +69,6 @@ const Assets = () => {
     if (isManual && !form.manual_value) return setError('Değer zorunludur.')
 
     setSaving(true)
-
     const { data: asset, error: assetError } = await supabase
       .from('assets')
       .insert({
@@ -89,7 +86,6 @@ const Assets = () => {
     if (isManual) {
       await supabase.from('manual_values').insert({ asset_id: asset.id, value: Number(form.manual_value) })
     } else if (form.quantity && form.avg_cost) {
-      // İlk alımı işlem olarak kaydet
       await addTransaction(asset.id, 'buy', Number(form.quantity), Number(form.avg_cost), new Date().toISOString().split('T')[0])
     }
 
@@ -122,16 +118,9 @@ const Assets = () => {
     if (txType === 'sell' && Number(txForm.quantity) > Number(txAsset.quantity)) {
       return setTxError(`Maksimum satılabilir: ${txAsset.quantity}`)
     }
-
     setTxSaving(true)
-    const { error } = await addTransaction(
-      txAsset.id, txType,
-      Number(txForm.quantity), Number(txForm.price),
-      txForm.date, txForm.note
-    )
-
+    const { error } = await addTransaction(txAsset.id, txType, Number(txForm.quantity), Number(txForm.price), txForm.date, txForm.note)
     if (error) { setTxError('Hata: ' + error.message); setTxSaving(false); return }
-
     const history = await fetchTransactions(txAsset.id)
     setTxHistory(history)
     setTxForm({ quantity: '', price: '', date: new Date().toISOString().split('T')[0], note: '' })
@@ -142,11 +131,32 @@ const Assets = () => {
   }
 
   const isUSD = (type: string) => ['usd_hisse', 'kripto', 'etf'].includes(type)
-
   const formatCurrency = (val: number, type?: string) =>
     type && isUSD(type)
       ? `$${Number(val).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
       : `₺${Number(val).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}`
+
+  const card = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderRadius: '16px',
+    padding: '20px',
+    boxShadow: 'var(--shadow)'
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px',
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: '10px',
+    color: 'var(--text-primary)',
+    fontSize: '14px'
+  }
+
+  const labelStyle = {
+    display: 'block', marginBottom: '6px',
+    fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600'
+  }
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -155,102 +165,90 @@ const Assets = () => {
   )
 
   return (
-    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '16px', paddingBottom: '80px' }}>
+    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '16px', paddingBottom: '90px', background: 'var(--bg-primary)', minHeight: '100vh' }}>
 
       {/* İşlem Modalı */}
       {txAsset && (
-        <div style={{ position: 'fixed', inset: 0, background: '#00000090', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '16px 16px 0 0', padding: '24px', width: '100%', maxWidth: '480px', maxHeight: '85vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontWeight: '700' }}>{txAsset.name}</h3>
-              <button onClick={() => setTxAsset(null)} style={{ background: 'none', color: 'var(--text-secondary)', fontSize: '20px' }}>✕</button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'white', borderRadius: '20px 20px 0 0', padding: '24px', width: '100%', maxWidth: '480px', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 -8px 32px rgba(0,0,0,0.12)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <h3 style={{ fontWeight: '800', fontSize: '18px', color: 'var(--text-primary)' }}>{txAsset.name}</h3>
+              <button onClick={() => setTxAsset(null)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-secondary)', width: '32px', height: '32px', fontSize: '16px' }}>✕</button>
             </div>
-
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>
-              Mevcut: {txAsset.quantity} adet • Ort. Maliyet: {formatCurrency(txAsset.avg_cost, txAsset.type)}
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
+              Mevcut: <strong>{txAsset.quantity} adet</strong> · Ort: <strong>{formatCurrency(txAsset.avg_cost, txAsset.type)}</strong>
             </p>
 
             {/* Alım/Satım Toggle */}
-            <div style={{ display: 'flex', background: 'var(--bg-primary)', borderRadius: '8px', padding: '2px', marginBottom: '16px' }}>
-              <button
-                onClick={() => setTxType('buy')}
-                style={{ flex: 1, padding: '8px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', background: txType === 'buy' ? 'var(--green)' : 'none', color: txType === 'buy' ? 'white' : 'var(--text-secondary)' }}
-              >
-                Alım
+            <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: '12px', padding: '3px', marginBottom: '20px', border: '1px solid var(--border)' }}>
+              <button onClick={() => setTxType('buy')}
+                style={{ flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', background: txType === 'buy' ? 'var(--green)' : 'none', color: txType === 'buy' ? 'white' : 'var(--text-secondary)', transition: 'all 0.2s' }}>
+                ↑ Alım
               </button>
-              <button
-                onClick={() => setTxType('sell')}
-                style={{ flex: 1, padding: '8px', borderRadius: '6px', fontSize: '14px', fontWeight: '600', background: txType === 'sell' ? 'var(--red)' : 'none', color: txType === 'sell' ? 'white' : 'var(--text-secondary)' }}
-              >
-                Satım
+              <button onClick={() => setTxType('sell')}
+                style={{ flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', background: txType === 'sell' ? 'var(--red)' : 'none', color: txType === 'sell' ? 'white' : 'var(--text-secondary)', transition: 'all 0.2s' }}>
+                ↓ Satım
               </button>
             </div>
 
-            {/* İşlem Formu */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>Adet</label>
-                <input type="number" value={txForm.quantity} onChange={e => setTxForm({ ...txForm, quantity: e.target.value })}
-                  placeholder="100"
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+                <label style={labelStyle}>Adet</label>
+                <input type="number" value={txForm.quantity} onChange={e => setTxForm({ ...txForm, quantity: e.target.value })} placeholder="100" style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Birim Fiyat ({isUSD(txAsset.type) ? '$' : '₺'})
-                </label>
-                <input type="number" value={txForm.price} onChange={e => setTxForm({ ...txForm, price: e.target.value })}
-                  placeholder="250"
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+                <label style={labelStyle}>Birim Fiyat ({isUSD(txAsset.type) ? '$' : '₺'})</label>
+                <input type="number" value={txForm.price} onChange={e => setTxForm({ ...txForm, price: e.target.value })} placeholder="250" style={inputStyle} />
               </div>
             </div>
 
             <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>Tarih</label>
-              <input type="date" value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })}
-                style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+              <label style={labelStyle}>Tarih</label>
+              <input type="date" value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })} style={inputStyle} />
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>Not (opsiyonel)</label>
-              <input type="text" value={txForm.note} onChange={e => setTxForm({ ...txForm, note: e.target.value })}
-                placeholder="Örn: Uzun vadeli alım"
-                style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+              <label style={labelStyle}>Not (opsiyonel)</label>
+              <input type="text" value={txForm.note} onChange={e => setTxForm({ ...txForm, note: e.target.value })} placeholder="Örn: Uzun vadeli alım" style={inputStyle} />
             </div>
 
             {txForm.quantity && txForm.price && (
-              <div style={{ background: 'var(--bg-primary)', borderRadius: '8px', padding: '10px', marginBottom: '12px', fontSize: '13px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Toplam: </span>
-                <span style={{ fontWeight: '700' }}>{formatCurrency(Number(txForm.quantity) * Number(txForm.price), txAsset.type)}</span>
+              <div style={{ background: txType === 'buy' ? 'var(--green-dim)' : 'var(--red-dim)', border: `1px solid ${txType === 'buy' ? 'var(--green)' : 'var(--red)'}`, borderRadius: '10px', padding: '12px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>Toplam Tutar</span>
+                <span style={{ fontSize: '16px', fontWeight: '800', color: txType === 'buy' ? 'var(--green)' : 'var(--red)' }}>
+                  {formatCurrency(Number(txForm.quantity) * Number(txForm.price), txAsset.type)}
+                </span>
               </div>
             )}
 
             {txError && (
-              <div style={{ background: '#ef444420', border: '1px solid var(--red)', borderRadius: '8px', padding: '10px', marginBottom: '12px', color: 'var(--red)', fontSize: '13px' }}>
+              <div style={{ background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: '10px', padding: '10px', marginBottom: '12px', color: 'var(--red)', fontSize: '13px', fontWeight: '600' }}>
                 {txError}
               </div>
             )}
 
             <button onClick={handleTxSave} disabled={txSaving}
-              style={{ width: '100%', padding: '12px', background: txType === 'buy' ? 'var(--green)' : 'var(--red)', borderRadius: '8px', color: 'white', fontWeight: '600', fontSize: '15px', opacity: txSaving ? 0.7 : 1, marginBottom: '16px' }}>
-              {txSaving ? 'Kaydediliyor...' : txType === 'buy' ? 'Alımı Kaydet' : 'Satımı Kaydet'}
+              style={{ width: '100%', padding: '14px', background: txType === 'buy' ? 'var(--green)' : 'var(--red)', borderRadius: '12px', color: 'white', fontWeight: '700', fontSize: '15px', opacity: txSaving ? 0.7 : 1, marginBottom: '20px' }}>
+              {txSaving ? 'Kaydediliyor...' : txType === 'buy' ? '↑ Alımı Kaydet' : '↓ Satımı Kaydet'}
             </button>
 
-            {/* İşlem Geçmişi */}
             {txHistory.length > 0 && (
               <div>
-                <p style={{ fontWeight: '600', fontSize: '13px', marginBottom: '10px', color: 'var(--text-secondary)' }}>İşlem Geçmişi</p>
+                <p style={{ fontWeight: '700', fontSize: '13px', marginBottom: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>İşlem Geçmişi</p>
                 {txHistory.map((tx: any) => (
-                  <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: '13px' }}>
+                  <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                     <div>
-                      <span style={{ fontWeight: '600', color: tx.type === 'buy' ? 'var(--green)' : 'var(--red)' }}>
-                        {tx.type === 'buy' ? '↑ Alım' : '↓ Satım'}
-                      </span>
-                      <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{tx.transaction_date}</span>
-                      {tx.note && <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{tx.note}</p>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: tx.type === 'buy' ? 'var(--green)' : 'var(--red)', background: tx.type === 'buy' ? 'var(--green-dim)' : 'var(--red-dim)', padding: '2px 8px', borderRadius: '20px' }}>
+                          {tx.type === 'buy' ? '↑ Alım' : '↓ Satım'}
+                        </span>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{tx.transaction_date}</span>
+                      </div>
+                      {tx.note && <p style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>{tx.note}</p>}
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <p>{tx.quantity} adet</p>
-                      <p style={{ color: 'var(--text-secondary)' }}>{formatCurrency(tx.price, txAsset.type)}</p>
+                      <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{tx.quantity} adet</p>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{formatCurrency(tx.price, txAsset.type)}</p>
                     </div>
                   </div>
                 ))}
@@ -260,30 +258,38 @@ const Assets = () => {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingTop: '16px' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: '700' }}>Varlıklarım</h1>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingTop: '16px' }}>
+        <div>
+          <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Varlıklarım</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>{assets.length} varlık</p>
+        </div>
         <button onClick={() => setShowForm(!showForm)}
-          style={{ padding: '8px 16px', background: 'var(--accent)', borderRadius: '8px', color: 'white', fontWeight: '600', fontSize: '14px' }}>
-          {showForm ? 'İptal' : '+ Ekle'}
+          style={{ padding: '10px 18px', background: showForm ? 'var(--bg-card)' : 'var(--accent)', border: `1px solid ${showForm ? 'var(--border)' : 'var(--accent)'}`, borderRadius: '12px', color: showForm ? 'var(--text-secondary)' : 'white', fontWeight: '700', fontSize: '14px', boxShadow: showForm ? 'var(--shadow)' : '0 4px 12px rgba(99,102,241,0.3)' }}>
+          {showForm ? 'İptal' : '+ Yeni Varlık'}
         </button>
       </div>
 
       {success && (
-        <div style={{ background: '#22c55e20', border: '1px solid var(--green)', borderRadius: '8px', padding: '12px', marginBottom: '16px', color: 'var(--green)', fontSize: '14px' }}>
-          {success}
+        <div style={{ background: 'var(--green-dim)', border: '1px solid var(--green)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', color: 'var(--green)', fontSize: '14px', fontWeight: '600' }}>
+          ✅ {success}
         </div>
       )}
 
+      {/* Yeni Varlık Formu */}
       {showForm && (
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px', marginBottom: '16px' }}>
-          <p style={{ fontWeight: '600', marginBottom: '16px' }}>Yeni Varlık Ekle</p>
+        <div style={{ ...card, marginBottom: '16px' }}>
+          <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Yeni Varlık Ekle</p>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>Varlık Türü</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <label style={labelStyle}>Varlık Türü</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {ASSET_TYPES.map(t => (
                 <button key={t.value} onClick={() => setForm({ ...form, type: t.value })}
-                  style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '13px', background: form.type === t.value ? 'var(--accent)' : 'var(--bg-primary)', border: `1px solid ${form.type === t.value ? 'var(--accent)' : 'var(--border)'}`, color: form.type === t.value ? 'white' : 'var(--text-secondary)' }}>
+                  style={{ padding: '7px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600',
+                    background: form.type === t.value ? 'var(--accent)' : 'var(--bg-elevated)',
+                    border: `1px solid ${form.type === t.value ? 'var(--accent)' : 'var(--border)'}`,
+                    color: form.type === t.value ? 'white' : 'var(--text-secondary)' }}>
                   {t.label}
                 </button>
               ))}
@@ -291,90 +297,87 @@ const Assets = () => {
           </div>
 
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>Varlık Adı</label>
-            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="örn. Türk Hava Yolları"
-              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '15px' }} />
+            <label style={labelStyle}>Varlık Adı</label>
+            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="örn. Türk Hava Yolları" style={inputStyle} />
           </div>
 
           {selectedType?.hasSymbol && (
             <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>Sembol</label>
-              <input value={form.symbol} onChange={e => setForm({ ...form, symbol: e.target.value })} placeholder={selectedType.symbolPlaceholder}
-                style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '15px' }} />
+              <label style={labelStyle}>Sembol</label>
+              <input value={form.symbol} onChange={e => setForm({ ...form, symbol: e.target.value })} placeholder={selectedType.symbolPlaceholder} style={inputStyle} />
             </div>
           )}
 
           {isManual ? (
             <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>Güncel Değer (₺)</label>
-              <input type="number" value={form.manual_value} onChange={e => setForm({ ...form, manual_value: e.target.value })} placeholder="150000"
-                style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '15px' }} />
+              <label style={labelStyle}>Güncel Değer (₺)</label>
+              <input type="number" value={form.manual_value} onChange={e => setForm({ ...form, manual_value: e.target.value })} placeholder="150000" style={inputStyle} />
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>Adet</label>
-                <input type="number" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} placeholder="100"
-                  style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '15px' }} />
+                <label style={labelStyle}>Adet</label>
+                <input type="number" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} placeholder="100" style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  Ort. Maliyet ({selectedType?.currency === 'USD' ? '$' : '₺'})
-                </label>
-                <input type="number" value={form.avg_cost} onChange={e => setForm({ ...form, avg_cost: e.target.value })} placeholder="250"
-                  style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '15px' }} />
+                <label style={labelStyle}>Ort. Maliyet ({selectedType?.currency === 'USD' ? '$' : '₺'})</label>
+                <input type="number" value={form.avg_cost} onChange={e => setForm({ ...form, avg_cost: e.target.value })} placeholder="250" style={inputStyle} />
               </div>
             </div>
           )}
 
           {error && (
-            <div style={{ background: '#ef444420', border: '1px solid var(--red)', borderRadius: '8px', padding: '10px', marginBottom: '12px', color: 'var(--red)', fontSize: '13px' }}>
+            <div style={{ background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: '10px', padding: '10px', marginBottom: '12px', color: 'var(--red)', fontSize: '13px', fontWeight: '600' }}>
               {error}
             </div>
           )}
 
           <button onClick={handleSave} disabled={saving}
-            style={{ width: '100%', padding: '12px', background: 'var(--accent)', borderRadius: '8px', color: 'white', fontWeight: '600', fontSize: '15px', opacity: saving ? 0.7 : 1 }}>
+            style={{ width: '100%', padding: '13px', background: 'var(--accent)', borderRadius: '12px', color: 'white', fontWeight: '700', fontSize: '15px', opacity: saving ? 0.7 : 1, boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
         </div>
       )}
 
       {/* Varlık Listesi */}
-      <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px' }}>
-        <p style={{ fontWeight: '600', marginBottom: '16px' }}>Mevcut Varlıklar ({assets.length})</p>
+      <div style={card}>
+        <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Mevcut Varlıklar</p>
         {assets.length === 0 ? (
-          <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0' }}>Henüz varlık eklenmedi</p>
+          <div style={{ textAlign: 'center', padding: '32px 0' }}>
+            <p style={{ fontSize: '32px', marginBottom: '8px' }}>📭</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Henüz varlık eklenmedi</p>
+          </div>
         ) : (
-          assets.map((asset: any) => {
+          assets.map((asset: any, index: number) => {
             const isManualAsset = ['bes', 'vadeli'].includes(asset.type)
             const lastValue = asset.manual_values?.[asset.manual_values.length - 1]?.value
             return (
-              <div key={asset.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+              <div key={asset.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: index < assets.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <div>
-                  <p style={{ fontWeight: '600', fontSize: '15px' }}>{asset.name}</p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                    {ASSET_LABELS[asset.type]} {asset.symbol ? `• ${asset.symbol}` : ''}
-                    {!isManualAsset ? ` • ${asset.quantity} adet` : ''}
+                  <p style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>{asset.name}</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>
+                    <span style={{ background: 'var(--bg-elevated)', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{ASSET_LABELS[asset.type]}</span>
+                    {asset.symbol ? ` ${asset.symbol}` : ''}
+                    {!isManualAsset ? ` · ${asset.quantity} adet` : ''}
                   </p>
                   {!isManualAsset && asset.avg_cost > 0 && (
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
+                    <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '2px' }}>
                       Ort: {formatCurrency(asset.avg_cost, asset.type)}
                     </p>
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {isManualAsset && lastValue && (
-                    <p style={{ fontWeight: '600', fontSize: '14px' }}>₺{Number(lastValue).toLocaleString('tr-TR')}</p>
+                    <p style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>₺{Number(lastValue).toLocaleString('tr-TR')}</p>
                   )}
                   {!isManualAsset && (
                     <button onClick={() => openTxModal(asset)}
-                      style={{ background: '#6366f120', border: '1px solid var(--accent)', borderRadius: '6px', color: 'var(--accent)', padding: '4px 10px', fontSize: '12px' }}>
+                      style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)', borderRadius: '8px', color: 'var(--accent)', padding: '6px 12px', fontSize: '12px', fontWeight: '700' }}>
                       İşlem
                     </button>
                   )}
                   <button onClick={() => handleDelete(asset.id)}
-                    style={{ background: '#ef444420', border: '1px solid var(--red)', borderRadius: '6px', color: 'var(--red)', padding: '4px 10px', fontSize: '12px' }}>
+                    style={{ background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: '8px', color: 'var(--red)', padding: '6px 12px', fontSize: '12px', fontWeight: '700' }}>
                     Sil
                   </button>
                 </div>
@@ -385,16 +388,18 @@ const Assets = () => {
       </div>
 
       {/* Alt Navigasyon */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
-        <button onClick={() => navigate('/')} style={{ background: 'none', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-          <span style={{ fontSize: '20px' }}>📊</span> Portföy
-        </button>
-        <button onClick={() => navigate('/analitik')} style={{ background: 'none', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-          <span style={{ fontSize: '20px' }}>📈</span> Analitik
-        </button>
-        <button onClick={() => navigate('/varliklar')} style={{ background: 'none', color: 'var(--accent)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-          <span style={{ fontSize: '20px' }}>➕</span> Varlık Ekle
-        </button>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px' }}>
+        {[
+          { path: '/', icon: '📊', label: 'Portföy' },
+          { path: '/analitik', icon: '📈', label: 'Analitik' },
+          { path: '/varliklar', icon: '➕', label: 'İşlem' },
+        ].map(item => (
+          <button key={item.path} onClick={() => navigate(item.path)}
+            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: '600', padding: '4px 16px' }}>
+            <span style={{ fontSize: '22px' }}>{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
       </div>
     </div>
   )

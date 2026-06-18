@@ -6,7 +6,7 @@ import { saveSnapshot } from '../lib/snapshot'
 import { useNavigate } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
-const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#8b5cf6']
+const COLORS = ['#6366f1', '#059669', '#d97706', '#dc2626', '#2563eb', '#7c3aed', '#0891b2']
 
 const ASSET_LABELS: Record<string, string> = {
   hisse: 'BIST Hisse', usd_hisse: 'ABD Hisse', kripto: 'Kripto',
@@ -23,30 +23,16 @@ const Dashboard = () => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [displayCurrency, setDisplayCurrency] = useState<'TRY' | 'USD'>('TRY')
   const [usdRate, setUsdRate] = useState<number>(38)
+  const [portfolioId, setPortfolioId] = useState<string | null>(null)
   const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteStatus, setInviteStatus] = useState('')
-  const [portfolioId, setPortfolioId] = useState<string | null>(null)
 
   useEffect(() => { fetchAssets() }, [])
 
   const fetchAssets = async () => {
     const { data: portfolios } = await supabase
       .from('portfolios').select('id').eq('user_id', user.id)
-      if (portfolios?.length) setPortfolioId(portfolios[0].id)
-
-  const handleInvite = async () => {
-    if (!inviteEmail || !portfolioId) return
-    setInviteStatus('loading')
-    const { data, error } = await supabase.rpc('invite_member', {
-      p_portfolio_id: portfolioId,
-      p_email: inviteEmail
-    })
-    if (error) { setInviteStatus('error'); return }
-    if (data === 'user_not_found') setInviteStatus('not_found')
-    else if (data === 'already_member') setInviteStatus('already')
-    else setInviteStatus('success')
-  }
 
     if (!portfolios?.length) {
       await supabase.from('portfolios').insert({ user_id: user.id, name: 'Ana Portföy' })
@@ -54,10 +40,20 @@ const Dashboard = () => {
       return
     }
 
+    if (portfolios?.length) setPortfolioId(portfolios[0].id)
+
+    const { data: memberPortfolios } = await supabase
+      .from('portfolio_members').select('portfolio_id').eq('user_id', user.id)
+
+    const allPortfolioIds = [
+      portfolios[0].id,
+      ...(memberPortfolios?.map((m: any) => m.portfolio_id) || [])
+    ]
+
     const { data: assetsData } = await supabase
       .from('assets')
       .select('*, manual_values(value, recorded_at)')
-      .eq('portfolio_id', portfolios[0].id)
+      .in('portfolio_id', allPortfolioIds)
       .order('created_at', { ascending: false })
 
     const loaded = assetsData || []
@@ -93,6 +89,19 @@ const Dashboard = () => {
       }
       setPricesLoading(false)
     }
+  }
+
+  const handleInvite = async () => {
+    if (!inviteEmail || !portfolioId) return
+    setInviteStatus('loading')
+    const { data, error } = await supabase.rpc('invite_member', {
+      p_portfolio_id: portfolioId,
+      p_email: inviteEmail
+    })
+    if (error) { setInviteStatus('error'); return }
+    if (data === 'user_not_found') setInviteStatus('not_found')
+    else if (data === 'already_member') setInviteStatus('already')
+    else setInviteStatus('success')
   }
 
   const getAssetValue = (asset: any) => {
@@ -143,161 +152,175 @@ const Dashboard = () => {
   const fp = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <p style={{ color: 'var(--text-secondary)' }}>Yükleniyor...</p>
     </div>
   )
 
-  const cardStyle = {
-    background: 'var(--bg-secondary)',
+  const card = {
+    background: 'var(--bg-card)',
     border: '1px solid var(--border)',
-    borderRadius: '14px',
-    padding: '16px'
-  }
-
-  const labelStyle = {
-    color: 'var(--text-secondary)',
-    fontSize: '11px',
-    marginBottom: '6px',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px'
+    borderRadius: '16px',
+    padding: '20px',
+    boxShadow: 'var(--shadow)'
   }
 
   return (
-    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '16px', paddingBottom: '80px' }}>
+    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '16px', paddingBottom: '90px', background: 'var(--bg-primary)', minHeight: '100vh' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingTop: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: '700' }}>💼 Kumbaram</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{user.email}</p>
+          <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Kumbaram</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>{user.email}</p>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', background: 'var(--bg-primary)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: '10px', padding: '3px', border: '1px solid var(--border)' }}>
             <button onClick={() => setDisplayCurrency('TRY')}
-              style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: displayCurrency === 'TRY' ? 'var(--accent)' : 'none', color: displayCurrency === 'TRY' ? 'white' : 'var(--text-secondary)' }}>
+              style={{ padding: '5px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', background: displayCurrency === 'TRY' ? 'var(--accent)' : 'none', color: displayCurrency === 'TRY' ? 'white' : 'var(--text-secondary)', transition: 'all 0.2s' }}>
               ₺
             </button>
             <button onClick={() => setDisplayCurrency('USD')}
-              style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: displayCurrency === 'USD' ? 'var(--accent)' : 'none', color: displayCurrency === 'USD' ? 'white' : 'var(--text-secondary)' }}>
+              style={{ padding: '5px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', background: displayCurrency === 'USD' ? 'var(--accent)' : 'none', color: displayCurrency === 'USD' ? 'white' : 'var(--text-secondary)', transition: 'all 0.2s' }}>
               $
             </button>
           </div>
-          <button onClick={signOut} style={{ padding: '8px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+          <button onClick={signOut} style={{ padding: '8px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text-secondary)', fontSize: '13px', boxShadow: 'var(--shadow)' }}>
             Çıkış
           </button>
         </div>
       </div>
 
-      {/* 4 Metrik Kart */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-        <div style={cardStyle}>
-          <p style={labelStyle}>Toplam Değer</p>
-          <p style={{ fontSize: '18px', fontWeight: '700', color: 'var(--accent)' }}>{fc(total)}</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '4px' }}>{assets.length} varlık</p>
+      {/* Ana Değer Kartı */}
+      <div style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', borderRadius: '20px', padding: '24px', marginBottom: '16px', boxShadow: '0 8px 32px rgba(99,102,241,0.3)' }}>
+        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', marginBottom: '8px', fontWeight: '500' }}>Toplam Portföy Değeri</p>
+        <p style={{ fontSize: '36px', fontWeight: '800', color: 'white', letterSpacing: '-1px', marginBottom: '4px' }}>{fc(total)}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+          <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{assets.length} varlık</span>
+          {totalCost > 0 && (
+            <span style={{ fontSize: '13px', fontWeight: '700', color: totalGain >= 0 ? '#a7f3d0' : '#fca5a5', background: 'rgba(255,255,255,0.15)', padding: '3px 10px', borderRadius: '20px' }}>
+              {fp(totalGainPct)} ({fc(totalGain)})
+            </span>
+          )}
         </div>
-        <div style={cardStyle}>
-          <p style={labelStyle}>Yatırılan</p>
-          <p style={{ fontSize: '18px', fontWeight: '700' }}>{fc(totalCost)}</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '4px' }}>maliyet bazı</p>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginTop: '8px' }}>
+          {pricesLoading ? '⏳ Fiyatlar güncelleniyor...' : lastUpdated ? `Son güncelleme: ${lastUpdated.toLocaleTimeString('tr-TR')}` : ''}
+        </p>
+      </div>
+
+      {/* 3 Metrik Kart */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+        <div style={{ ...card, padding: '14px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '10px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Yatırılan</p>
+          <p style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>{fc(totalCost)}</p>
         </div>
-        <div style={cardStyle}>
-          <p style={labelStyle}>Toplam Kar/Zarar</p>
-          <p style={{ fontSize: '18px', fontWeight: '700', color: totalGain >= 0 ? 'var(--green)' : 'var(--red)' }}>
+        <div style={{ ...card, padding: '14px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '10px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Kar/Zarar</p>
+          <p style={{ fontSize: '15px', fontWeight: '700', color: totalGain >= 0 ? 'var(--green)' : 'var(--red)' }}>
             {totalGain >= 0 ? '+' : ''}{fc(totalGain)}
           </p>
-          <p style={{ fontSize: '11px', marginTop: '4px', color: totalGain >= 0 ? 'var(--green)' : 'var(--red)' }}>
+        </div>
+        <div style={{ ...card, padding: '14px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '10px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Getiri</p>
+          <p style={{ fontSize: '15px', fontWeight: '700', color: totalGainPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
             {fp(totalGainPct)}
           </p>
         </div>
-        <div style={cardStyle}>
-          <p style={labelStyle}>Son Güncelleme</p>
-          <p style={{ fontSize: '13px', fontWeight: '600', marginTop: '8px' }}>
-            {pricesLoading ? '⏳ Yükleniyor...' : lastUpdated ? lastUpdated.toLocaleTimeString('tr-TR') : '-'}
-          </p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '4px' }}>canlı fiyat</p>
-        </div>
       </div>
 
-      {/* Pasta Grafik */}
+      {/* Dağılım */}
       {pieData.length > 0 && (
-        <div style={{ ...cardStyle, marginBottom: '16px' }}>
-          <p style={{ fontWeight: '600', marginBottom: '4px' }}>Dağılım</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" nameKey="name" paddingAngle={3}>
-                {pieData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={(val: any, name: any) => [fc(val), name]} contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {pieData.map((item: any, i: number) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS[i % COLORS.length] }} />
-                <span style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
-                <span style={{ fontWeight: '600' }}>%{total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}</span>
-              </div>
-            ))}
+        <div style={{ ...card, marginBottom: '16px' }}>
+          <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Dağılım</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <ResponsiveContainer width={140} height={140}>
+              <PieChart>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={42} outerRadius={65} dataKey="value" nameKey="name" paddingAngle={2}>
+                  {pieData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(val: any, name: any) => [fc(val), name]} contentStyle={{ background: 'white', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ flex: 1 }}>
+              {pieData.map((item: any, i: number) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: COLORS[i % COLORS.length] }} />
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.label}</span>
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                    %{total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Kategori Bazlı Varlık Listesi */}
-      <div style={{ ...cardStyle, marginBottom: '16px' }}>
-        <p style={{ fontWeight: '600', marginBottom: '12px' }}>Portföy</p>
+      {/* Portföy Listesi */}
+      <div style={{ ...card, marginBottom: '16px' }}>
+        <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Portföy</p>
         {pieData.length === 0 ? (
-          <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0' }}>Henüz varlık eklenmedi</p>
+          <div style={{ textAlign: 'center', padding: '32px 0' }}>
+            <p style={{ fontSize: '32px', marginBottom: '8px' }}>📭</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Henüz varlık eklenmedi</p>
+          </div>
         ) : (
           pieData.map((group: any, gi: number) => {
             const groupGain = group.value - group.cost
             const groupGainPct = group.cost > 0 ? (groupGain / group.cost) * 100 : 0
             return (
-              <div key={gi} style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: '8px' }}>
+              <div key={gi} style={{ marginBottom: '8px' }}>
+                {/* Kategori Başlığı */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '10px', marginBottom: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS[gi % COLORS.length] }} />
-                    <span style={{ fontWeight: '600', fontSize: '13px' }}>{group.label}</span>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{group.items.length} varlık</span>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: COLORS[gi % COLORS.length] }} />
+                    <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>{group.label}</span>
+                    <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>{group.items.length}</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontSize: '13px', fontWeight: '600' }}>{fc(group.value)}</p>
+                    <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{fc(group.value)}</p>
                     {group.cost > 0 && (
-                      <p style={{ fontSize: '11px', color: groupGain >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      <p style={{ fontSize: '11px', fontWeight: '600', color: groupGain >= 0 ? 'var(--green)' : 'var(--red)' }}>
                         {fp(groupGainPct)}
                       </p>
                     )}
                   </div>
                 </div>
-                {group.items.map((asset: any) => {
+
+                {/* Varlıklar */}
+                {group.items.map((asset: any, ai: number) => {
                   const value = getAssetValue(asset)
                   const cost = getCostValue(asset)
                   const gain = value - cost
                   const gainPct = cost > 0 ? (gain / cost) * 100 : 0
                   const isManual = ['bes', 'vadeli'].includes(asset.type)
+                  const isUSDAsset = ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
                   const hasPrice = prices[asset.symbol] !== undefined
-                  const isUSD = ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
 
                   return (
-                    <div key={asset.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0 8px 16px' }}>
+                    <div key={asset.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px 10px 28px', borderBottom: ai < group.items.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
                       <div>
-                        <p style={{ fontSize: '14px', fontWeight: '500' }}>{asset.name}</p>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
-                          {asset.symbol || ''}
-                          {!isManual && asset.quantity ? ` • ${asset.quantity} adet` : ''}
-                          {hasPrice ? ` • ${isUSD ? `$${(prices[asset.symbol] / usdRate).toFixed(2)}` : fc(prices[asset.symbol])}` : ''}
+                        <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{asset.name}</p>
+                        <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '2px' }}>
+                          {asset.symbol && <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>{asset.symbol}</span>}
+                          {!isManual && asset.quantity ? ` · ${asset.quantity} adet` : ''}
+                          {hasPrice ? ` · ${isUSDAsset ? `$${(prices[asset.symbol] / usdRate).toFixed(2)}` : fc(prices[asset.symbol])}` : ''}
                         </p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontSize: '14px', fontWeight: '600' }}>{fc(value)}</p>
-                        {!isManual && cost > 0 && (
-                          <p style={{ fontSize: '11px', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                            {fp(gainPct)}
-                          </p>
-                        )}
-                        <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                          %{total > 0 ? ((value / total) * 100).toFixed(1) : 0}
-                        </p>
+                        <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{fc(value)}</p>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '2px' }}>
+                          {!isManual && cost > 0 && (
+                            <span style={{ fontSize: '11px', fontWeight: '600', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                              {fp(gainPct)}
+                            </span>
+                          )}
+                          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                            %{total > 0 ? ((value / total) * 100).toFixed(1) : 0}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )
@@ -310,53 +333,54 @@ const Dashboard = () => {
 
       {/* Yenile */}
       <button onClick={fetchAssets} disabled={pricesLoading}
-        style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px', opacity: pricesLoading ? 0.6 : 1 }}>
-        {pricesLoading ? 'Güncelleniyor...' : '🔄 Fiyatları Yenile'}
+        style={{ width: '100%', padding: '13px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', color: pricesLoading ? 'var(--text-tertiary)' : 'var(--accent)', fontSize: '14px', fontWeight: '600', marginBottom: '12px', boxShadow: 'var(--shadow)', transition: 'all 0.2s' }}>
+        {pricesLoading ? '⏳ Güncelleniyor...' : '🔄 Fiyatları Yenile'}
       </button>
 
       {/* Davet */}
-      <div style={{ ...cardStyle, marginBottom: '16px' }}>
+      <div style={{ ...card, marginBottom: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <p style={{ fontWeight: '600', fontSize: '14px' }}>👥 Portföyü Paylaş</p>
+          <div>
+            <p style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>👥 Portföyü Paylaş</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>Eşini davet et</p>
+          </div>
           <button onClick={() => setShowInvite(!showInvite)}
-            style={{ background: 'none', color: 'var(--accent)', fontSize: '13px' }}>
+            style={{ padding: '7px 14px', background: showInvite ? 'var(--bg-elevated)' : 'var(--accent-dim)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--accent)', fontSize: '13px', fontWeight: '600' }}>
             {showInvite ? 'Kapat' : 'Davet Et'}
           </button>
         </div>
         {showInvite && (
-          <div style={{ marginTop: '12px' }}>
+          <div style={{ marginTop: '14px' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
+              <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
                 placeholder="esim@email.com"
-                style={{ flex: 1, padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }}
-              />
+                style={{ flex: 1, padding: '10px 12px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text-primary)', fontSize: '14px' }} />
               <button onClick={handleInvite}
-                style={{ padding: '10px 16px', background: 'var(--accent)', borderRadius: '8px', color: 'white', fontWeight: '600', fontSize: '14px' }}>
+                style={{ padding: '10px 16px', background: 'var(--accent)', borderRadius: '10px', color: 'white', fontWeight: '600', fontSize: '14px' }}>
                 Gönder
               </button>
             </div>
-            {inviteStatus === 'success' && <p style={{ color: 'var(--green)', fontSize: '13px', marginTop: '8px' }}>✅ Davet gönderildi!</p>}
-            {inviteStatus === 'not_found' && <p style={{ color: 'var(--red)', fontSize: '13px', marginTop: '8px' }}>❌ Bu email ile kayıtlı kullanıcı bulunamadı. Önce kayıt olması gerekiyor.</p>}
-            {inviteStatus === 'already' && <p style={{ color: 'var(--yellow)', fontSize: '13px', marginTop: '8px' }}>⚠️ Bu kullanıcı zaten portföy üyesi.</p>}
+            {inviteStatus === 'success' && <p style={{ color: 'var(--green)', fontSize: '13px', marginTop: '8px', fontWeight: '600' }}>✅ Davet gönderildi!</p>}
+            {inviteStatus === 'not_found' && <p style={{ color: 'var(--red)', fontSize: '13px', marginTop: '8px' }}>❌ Kullanıcı bulunamadı. Önce kayıt olması gerekiyor.</p>}
+            {inviteStatus === 'already' && <p style={{ color: 'var(--yellow)', fontSize: '13px', marginTop: '8px' }}>⚠️ Bu kullanıcı zaten üye.</p>}
             {inviteStatus === 'error' && <p style={{ color: 'var(--red)', fontSize: '13px', marginTop: '8px' }}>❌ Bir hata oluştu.</p>}
           </div>
         )}
       </div>
 
       {/* Alt Navigasyon */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
-        <button onClick={() => navigate('/')} style={{ background: 'none', color: 'var(--accent)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-          <span style={{ fontSize: '20px' }}>📊</span> Portföy
-        </button>
-        <button onClick={() => navigate('/analitik')} style={{ background: 'none', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-          <span style={{ fontSize: '20px' }}>📈</span> Analitik
-        </button>
-        <button onClick={() => navigate('/varliklar')} style={{ background: 'none', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-          <span style={{ fontSize: '20px' }}>➕</span> Varlık Ekle
-        </button>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px' }}>
+        {[
+          { path: '/', icon: '📊', label: 'Portföy' },
+          { path: '/analitik', icon: '📈', label: 'Analitik' },
+          { path: '/varliklar', icon: '➕', label: 'İşlem' },
+        ].map(item => (
+          <button key={item.path} onClick={() => navigate(item.path)}
+            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: '600', padding: '4px 16px' }}>
+            <span style={{ fontSize: '22px' }}>{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
       </div>
     </div>
   )
