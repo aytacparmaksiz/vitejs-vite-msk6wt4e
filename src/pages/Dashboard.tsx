@@ -5,6 +5,7 @@ import { fetchAllPrices } from '../lib/prices'
 import { saveSnapshot } from '../lib/snapshot'
 import { useNavigate } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#8b5cf6']
 
 const ASSET_LABELS: Record<string, string> = {
@@ -50,7 +51,10 @@ const Dashboard = () => {
       const fetched = await fetchAllPrices(loaded)
       setPrices(fetched)
       setLastUpdated(new Date())
-      // Snapshot kaydet
+
+      if (fetched['USDTRY=X']) setUsdRate(fetched['USDTRY=X'])
+      else if (fetched['USD']) setUsdRate(fetched['USD'])
+
       if (portfolios?.[0]?.id) {
         const tv = loaded.reduce((sum: number, a: any) => {
           if (['bes', 'vadeli'].includes(a.type)) {
@@ -69,8 +73,6 @@ const Dashboard = () => {
         }, 0)
         await saveSnapshot(portfolios[0].id, tv, tc)
       }
-      if (fetched['USDTRY=X']) setUsdRate(fetched['USDTRY=X'])
-      else if (fetched['USD']) setUsdRate(fetched['USD'])
       setPricesLoading(false)
     }
   }
@@ -86,14 +88,20 @@ const Dashboard = () => {
 
   const getCostValue = (asset: any) => {
     if (['bes', 'vadeli'].includes(asset.type)) return getAssetValue(asset)
-    return (asset.avg_cost || 0) * Number(asset.quantity)
+    const isUSD = ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
+    const cost = (asset.avg_cost || 0) * Number(asset.quantity)
+    return isUSD ? cost * usdRate : cost
   }
 
   const groupByType = () => {
     const groups: Record<string, any> = {}
     assets.forEach(asset => {
       const type = asset.type
-      if (!groups[type]) groups[type] = { type, label: ASSET_LABELS[type] || type, value: 0, cost: 0, items: [] }
+      if (!groups[type]) groups[type] = {
+        type, label: ASSET_LABELS[type] || type,
+        name: ASSET_LABELS[type] || type,
+        value: 0, cost: 0, items: []
+      }
       groups[type].value += getAssetValue(asset)
       groups[type].cost += getCostValue(asset)
       groups[type].items.push(asset)
@@ -113,7 +121,8 @@ const Dashboard = () => {
     }
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(val)
   }
-    const fp = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`
+
+  const fp = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -147,16 +156,12 @@ const Dashboard = () => {
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <div style={{ display: 'flex', background: 'var(--bg-primary)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border)' }}>
-            <button
-              onClick={() => setDisplayCurrency('TRY')}
-              style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: displayCurrency === 'TRY' ? 'var(--accent)' : 'none', color: displayCurrency === 'TRY' ? 'white' : 'var(--text-secondary)' }}
-            >
+            <button onClick={() => setDisplayCurrency('TRY')}
+              style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: displayCurrency === 'TRY' ? 'var(--accent)' : 'none', color: displayCurrency === 'TRY' ? 'white' : 'var(--text-secondary)' }}>
               ₺
             </button>
-            <button
-              onClick={() => setDisplayCurrency('USD')}
-              style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: displayCurrency === 'USD' ? 'var(--accent)' : 'none', color: displayCurrency === 'USD' ? 'white' : 'var(--text-secondary)' }}
-            >
+            <button onClick={() => setDisplayCurrency('USD')}
+              style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: displayCurrency === 'USD' ? 'var(--accent)' : 'none', color: displayCurrency === 'USD' ? 'white' : 'var(--text-secondary)' }}>
               $
             </button>
           </div>
@@ -202,10 +207,10 @@ const Dashboard = () => {
           <p style={{ fontWeight: '600', marginBottom: '4px' }}>Dağılım</p>
           <ResponsiveContainer width="100%" height={180}>
             <PieChart>
-              <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={3}>
+              <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" nameKey="name" paddingAngle={3}>
                 {pieData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip formatter={(val: any) => fc(val)} />
+              <Tooltip formatter={(val: any, name: any) => [fc(val), name]} contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }} />
             </PieChart>
           </ResponsiveContainer>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -231,7 +236,6 @@ const Dashboard = () => {
             const groupGainPct = group.cost > 0 ? (groupGain / group.cost) * 100 : 0
             return (
               <div key={gi} style={{ marginBottom: '16px' }}>
-                {/* Kategori Başlığı */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: COLORS[gi % COLORS.length] }} />
@@ -247,7 +251,6 @@ const Dashboard = () => {
                     )}
                   </div>
                 </div>
-                {/* Kategori İçindeki Varlıklar */}
                 {group.items.map((asset: any) => {
                   const value = getAssetValue(asset)
                   const cost = getCostValue(asset)
@@ -255,6 +258,7 @@ const Dashboard = () => {
                   const gainPct = cost > 0 ? (gain / cost) * 100 : 0
                   const isManual = ['bes', 'vadeli'].includes(asset.type)
                   const hasPrice = prices[asset.symbol] !== undefined
+                  const isUSD = ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
 
                   return (
                     <div key={asset.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0 8px 16px' }}>
@@ -263,11 +267,7 @@ const Dashboard = () => {
                         <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
                           {asset.symbol || ''}
                           {!isManual && asset.quantity ? ` • ${asset.quantity} adet` : ''}
-                          {hasPrice ? ` • ${
-                            ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
-                              ? `$${(prices[asset.symbol] / usdRate).toFixed(2)}`
-                              : fc(prices[asset.symbol])
-                          }` : ''}
+                          {hasPrice ? ` • ${isUSD ? `$${(prices[asset.symbol] / usdRate).toFixed(2)}` : fc(prices[asset.symbol])}` : ''}
                         </p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
@@ -291,15 +291,11 @@ const Dashboard = () => {
       </div>
 
       {/* Yenile */}
-      <button
-        onClick={fetchAssets}
-        disabled={pricesLoading}
-        style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px', opacity: pricesLoading ? 0.6 : 1 }}
-      >
+      <button onClick={fetchAssets} disabled={pricesLoading}
+        style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px', opacity: pricesLoading ? 0.6 : 1 }}>
         {pricesLoading ? 'Güncelleniyor...' : '🔄 Fiyatları Yenile'}
       </button>
 
-    
       {/* Alt Navigasyon */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '12px 0' }}>
         <button onClick={() => navigate('/')} style={{ background: 'none', color: 'var(--accent)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
