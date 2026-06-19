@@ -388,6 +388,13 @@ const Dashboard = () => {
                               {fp(gainPct)}
                             </span>
                           )}
+                          {!isManual && hasPrice && (
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                              {prices[asset.symbol] > (asset.avg_cost || 0)
+                                ? `▲ ${(((prices[asset.symbol] - (asset.avg_cost || 0)) / (asset.avg_cost || 1)) * 100).toFixed(2)}%`
+                                : `▼ ${(((asset.avg_cost || 0) - prices[asset.symbol]) / (asset.avg_cost || 1) * 100).toFixed(2)}%`}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
