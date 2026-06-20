@@ -23,6 +23,40 @@ const Dashboard = () => {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [dailyChange, setDailyChange] = useState<number | null>(null)
+  const [pullDistance, setPullDistance] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    let startY = 0
+    let pulling = false
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (window.scrollY === 0) { startY = e.touches[0].clientY; pulling = true }
+    }
+    const onTouchMove = (e: TouchEvent) => {
+      if (!pulling) return
+      const diff = e.touches[0].clientY - startY
+      if (diff > 0) setPullDistance(Math.min(diff, 100))
+    }
+    const onTouchEnd = async () => {
+      if (pulling && pullDistance > 60) {
+        setRefreshing(true)
+        await refresh(true)
+        setRefreshing(false)
+      }
+      setPullDistance(0)
+      pulling = false
+    }
+
+    window.addEventListener('touchstart', onTouchStart)
+    window.addEventListener('touchmove', onTouchMove)
+    window.addEventListener('touchend', onTouchEnd)
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [pullDistance])
 
   useEffect(() => { refresh() }, [])
 
@@ -133,7 +167,13 @@ const Dashboard = () => {
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', padding: '16px', paddingBottom: '90px', background: 'var(--bg-primary)', minHeight: '100vh' }}>
-
+     {(pullDistance > 0 || refreshing) && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: `${refreshing ? 50 : pullDistance}px`, transition: refreshing ? 'none' : 'height 0.1s', overflow: 'hidden' }}>
+          <span style={{ fontSize: '13px', color: 'var(--accent)', fontWeight: '600' }}>
+            {refreshing ? '⏳ Yenileniyor...' : pullDistance > 60 ? '↓ Bırak ve yenile' : '↓ Çek'}
+          </span>
+        </div>
+      )} 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingTop: '16px' }}>
         <div>
           <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Kumbaram</h1>
@@ -179,9 +219,9 @@ const Dashboard = () => {
           <p style={{ color: 'var(--text-secondary)', fontSize: '10px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Yatırılan</p>
           <p style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>{fc(totalCost)}</p>
         </div>
-        <div style={{ ...card, padding: '14px' }}>
+        <div style={{ ...card, padding: '14px', minWidth: 0 }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '10px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Kar/Zarar</p>
-          <p style={{ fontSize: '15px', fontWeight: '700', color: totalGain >= 0 ? 'var(--green)' : 'var(--red)' }}>
+          <p style={{ fontSize: '13px', fontWeight: '700', color: totalGain >= 0 ? 'var(--green)' : 'var(--red)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {totalGain >= 0 ? '+' : ''}{fc(totalGain)}
           </p>
         </div>
@@ -201,7 +241,9 @@ const Dashboard = () => {
               <PieChart>
                 <Pie data={pieData} cx="50%" cy="50%" innerRadius={42} outerRadius={65} dataKey="value" nameKey="name" paddingAngle={2}
                   onClick={(data: any) => setSelectedGroup(selectedGroup === data.type ? null : data.type)}
-                  style={{ cursor: 'pointer' }}>
+                  style={{ cursor: 'pointer', outline: 'none' }}
+                  tabIndex={-1}
+                  isAnimationActive={false}>
                   {pieData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(val: any, name: any) => [fc(val), name]} contentStyle={{ background: 'white', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }} />
