@@ -22,7 +22,7 @@ const Dashboard = () => {
   const [pricesLoading, setPricesLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [displayCurrency, setDisplayCurrency] = useState<'TRY' | 'USD'>('TRY')
-  const [usdRate, setUsdRate] = useState<number>(38)
+  const [usdRate, setUsdRate] = useState<number>(46.4)
   const [portfolioId, setPortfolioId] = useState<string | null>(null)
   const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')

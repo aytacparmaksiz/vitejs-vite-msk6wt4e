@@ -18,7 +18,7 @@ const CRYPTO_IDS: Record<string, string> = {
 
 async function fetchPrice(symbol: string): Promise<number | null> {
   try {
-    const res = await fetch(`${API_BASE}?symbol=${symbol}`)
+    const res = await fetch(`${API_BASE}?symbol=${encodeURIComponent(symbol)}`)
     const data = await res.json()
     return data?.price ? Number(data.price) : null
   } catch {
@@ -42,7 +42,8 @@ export async function fetchAllPrices(assets: any[]): Promise<Record<string, numb
   const prices: Record<string, number> = {}
 
   // Önce USD/TRY kuru al
-  const usdtry = await fetchPrice('USDTRY=X') ?? 38
+  const usdtry = await fetchPrice('USDTRY=X') ?? 46.4
+  prices['USDTRY=X'] = usdtry
 
   await Promise.all(assets.map(async (asset) => {
     if (!asset.symbol) return
