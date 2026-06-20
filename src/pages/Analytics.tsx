@@ -125,39 +125,54 @@ const Analytics = () => {
               </div>
             ) : (
               Object.entries(groups).map(([type, items]) => (
-                <div key={type} style={{ ...card, marginBottom: '14px' }}>
-                  <p style={{ fontWeight: '700', fontSize: '13px', marginBottom: '14px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <div key={type} style={{ ...card, marginBottom: '14px', padding: '16px 0' }}>
+                  <p style={{ fontWeight: '700', fontSize: '12px', marginBottom: '4px', padding: '0 16px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     {ASSET_LABELS[type] || type} · {items.length}
                   </p>
+
+                  {/* Tablo Başlığı */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.8fr 0.9fr 0.9fr', gap: '4px', padding: '10px 16px 6px', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase' }}>Varlık</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase', textAlign: 'right' }}>Maliyet</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase', textAlign: 'right' }}>Güncel</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase', textAlign: 'right' }}>Kar/Zarar</span>
+                  </div>
+
                   {items.map((asset: any, index: number) => {
                     const price = prices[asset.symbol] ?? asset.avg_cost ?? 0
                     const currentValue = price * Number(asset.quantity)
                     const costValue = (asset.avg_cost || 0) * Number(asset.quantity)
                     const gain = currentValue - costValue
                     const gainPct = costValue > 0 ? (gain / costValue) * 100 : 0
+                    const dailyPct = prices[asset.symbol + '_dailypct']
 
                     return (
-                      <div key={asset.id} style={{ marginBottom: index < items.length - 1 ? '16px' : 0, paddingBottom: index < items.length - 1 ? '16px' : 0, borderBottom: index < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <div>
-                            <p style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>{asset.name}</p>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{asset.symbol} · {asset.quantity} adet</p>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <p style={{ fontSize: '13px', fontWeight: '700', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                              {gain >= 0 ? '+' : ''}{gain.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
-                            </p>
-                            <p style={{ fontSize: '11px', fontWeight: '600', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                              {gain >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
-                            </p>
-                          </div>
+                      <div key={asset.id}
+                        style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.8fr 0.9fr 0.9fr', gap: '4px', padding: '12px 16px', borderBottom: index < items.length - 1 ? '1px solid var(--border-light)' : 'none', alignItems: 'center', transition: 'background 0.15s ease' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <div>
+                          <p style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>{asset.name}</p>
+                          <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '1px' }}>{asset.symbol} · {asset.quantity}</p>
                         </div>
-                        <div style={{ position: 'relative', height: '8px', background: 'var(--bg-elevated)', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${Math.min(Math.max((currentValue / (costValue || 1)) * 50, 5), 100)}%`, background: gain >= 0 ? 'var(--green)' : 'var(--red)', borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>₺{costValue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</p>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Maliyet: ₺{costValue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Güncel: ₺{currentValue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</span>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>₺{currentValue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</p>
+                          {dailyPct !== undefined && (
+                            <p style={{ fontSize: '10px', fontWeight: '600', color: dailyPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                              {dailyPct >= 0 ? '▲' : '▼'} {Math.abs(dailyPct).toFixed(2)}%
+                            </p>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: '12px', fontWeight: '700', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                            {gain >= 0 ? '+' : ''}₺{Math.abs(gain).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                          </p>
+                          <p style={{ fontSize: '10px', fontWeight: '600', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                            {gain >= 0 ? '▲' : '▼'} {Math.abs(gainPct).toFixed(1)}%
+                          </p>
                         </div>
                       </div>
                     )
@@ -168,7 +183,6 @@ const Analytics = () => {
           </div>
         )
       })()}
-
       {/* Performans Sekmesi */}
       {activeTab === 'performans' && (
         <>
