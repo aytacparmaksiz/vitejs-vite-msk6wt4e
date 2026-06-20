@@ -101,11 +101,11 @@ const Analytics = () => {
         <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Analitik</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>Portföy performansı</p>
       </div>
-
+      
       {/* Varlıklar Sekmesi */}
       {activeTab === 'varliklar' && (() => {
         const ASSET_LABELS: Record<string, string> = {
-          hisse: '🇹🇷 BIST Hisse', usd_hisse: '🇺🇸 ABD Hisse', kripto: '₿ Kripto',
+          hisse: 'BIST Hisse', usd_hisse: 'ABD Hisse', kripto: '₿ Kripto',
           etf: '📈 ETF', doviz: '💱 Döviz', altin: '🥇 Altın'
         }
         const usdRate = prices['USDTRY=X'] || 46.4
@@ -128,74 +128,68 @@ const Analytics = () => {
               Object.entries(groups).map(([type, items]) => {
                 const isUSD = ['usd_hisse', 'kripto', 'etf'].includes(type)
                 return (
-                <div key={type} style={{ ...card, marginBottom: '14px', padding: '16px 0', overflowX: 'auto' }}>
-                  <p style={{ fontWeight: '700', fontSize: '12px', marginBottom: '4px', padding: '0 16px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <div key={type} style={{ ...card, marginBottom: '14px' }}>
+                  <p style={{ fontWeight: '700', fontSize: '12px', marginBottom: '14px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     {ASSET_LABELS[type] || type} · {items.length}
                   </p>
 
-                  <div style={{ minWidth: '480px' }}>
-                    {/* Tablo Başlığı */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.6fr 0.8fr 0.8fr 0.7fr 0.9fr', gap: '4px', padding: '10px 16px 6px', borderBottom: '1px solid var(--border)' }}>
-                      <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase' }}>Varlık</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase', textAlign: 'right' }}>Adet</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase', textAlign: 'right' }}>Maliyet</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase', textAlign: 'right' }}>Güncel</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase', textAlign: 'right' }}>Günlük</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', textTransform: 'uppercase', textAlign: 'right' }}>Kar/Zarar</span>
-                    </div>
+                  {items.map((asset: any, index: number) => {
+                    const livePrice = prices[asset.symbol] ?? (asset.avg_cost ? asset.avg_cost * (isUSD ? usdRate : 1) : 0)
+                    const currentValue = livePrice * Number(asset.quantity)
+                    const costValueTRY = isUSD ? (asset.avg_cost || 0) * usdRate * Number(asset.quantity) : (asset.avg_cost || 0) * Number(asset.quantity)
+                    const gain = currentValue - costValueTRY
+                    const gainPct = costValueTRY > 0 ? (gain / costValueTRY) * 100 : 0
+                    const dailyPct = prices[asset.symbol + '_dailypct']
+                    const unitCostDisplay = isUSD ? `$${Number(asset.avg_cost || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}` : `₺${Number(asset.avg_cost || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}`
+                    const unitPriceDisplay = isUSD ? `$${(livePrice / usdRate).toLocaleString('en-US', { maximumFractionDigits: 2 })}` : `₺${livePrice.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}`
 
-                    {items.map((asset: any, index: number) => {
-                      const livePrice = prices[asset.symbol] ?? (asset.avg_cost ? asset.avg_cost * (isUSD ? usdRate : 1) : 0)
-                      const currentValue = livePrice * Number(asset.quantity)
-                      const costValueTRY = isUSD ? (asset.avg_cost || 0) * usdRate * Number(asset.quantity) : (asset.avg_cost || 0) * Number(asset.quantity)
-                      const gain = currentValue - costValueTRY
-                      const gainPct = costValueTRY > 0 ? (gain / costValueTRY) * 100 : 0
-                      const dailyPct = prices[asset.symbol + '_dailypct']
-                      const avgCostDisplay = isUSD ? `$${Number(asset.avg_cost || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}` : `₺${Number(asset.avg_cost || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}`
-
-                      return (
-                        <div key={asset.id}
-                          style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.6fr 0.8fr 0.8fr 0.7fr 0.9fr', gap: '4px', padding: '12px 16px', borderBottom: index < items.length - 1 ? '1px solid var(--border-light)' : 'none', alignItems: 'center', transition: 'background 0.15s ease' }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    return (
+                      <div key={asset.id} style={{ marginBottom: index < items.length - 1 ? '16px' : 0, paddingBottom: index < items.length - 1 ? '16px' : 0, borderBottom: index < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
                           <div>
-                            <p style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>{asset.name}</p>
-                            <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '1px' }}>{asset.symbol}</p>
+                            <p style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>{asset.name}</p>
+                            <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '1px' }}>{asset.symbol} · {asset.quantity} adet</p>
                           </div>
                           <div style={{ textAlign: 'right' }}>
-                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{asset.quantity}</p>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{avgCostDisplay}</p>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>₺{currentValue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</p>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            {dailyPct !== undefined ? (
-                              <p style={{ fontSize: '11px', fontWeight: '600', color: dailyPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                                {dailyPct >= 0 ? '▲' : '▼'} {Math.abs(dailyPct).toFixed(2)}%
-                              </p>
-                            ) : <p style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>—</p>}
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <p style={{ fontSize: '12px', fontWeight: '700', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                            <p style={{ fontSize: '15px', fontWeight: '800', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
                               {gain >= 0 ? '+' : ''}₺{Math.abs(gain).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                             </p>
-                            <p style={{ fontSize: '10px', fontWeight: '600', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                              {gain >= 0 ? '▲' : '▼'} {Math.abs(gainPct).toFixed(1)}%
+                            <p style={{ fontSize: '11px', fontWeight: '700', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                              {gain >= 0 ? '▲' : '▼'} {Math.abs(gainPct).toFixed(2)}%
                             </p>
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
+
+                        <div style={{ display: 'flex', gap: '0', borderTop: '1px solid var(--border-light)', paddingTop: '10px' }}>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', marginBottom: '3px' }}>MALİYET</p>
+                            <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>₺{costValueTRY.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</p>
+                            <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{unitCostDisplay}</p>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', marginBottom: '3px' }}>GÜNCEL</p>
+                            <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>₺{currentValue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</p>
+                            <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{unitPriceDisplay}</p>
+                          </div>
+                          <div style={{ flex: 1, textAlign: 'right' }}>
+                            <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', marginBottom: '3px' }}>GÜNLÜK</p>
+                            {dailyPct !== undefined ? (
+                              <p style={{ fontSize: '12px', fontWeight: '700', color: dailyPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                                {dailyPct >= 0 ? '▲' : '▼'} {Math.abs(dailyPct).toFixed(2)}%
+                              </p>
+                            ) : <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>—</p>}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )})
             )}
           </div>
         )
       })()}
+
       {/* Performans Sekmesi */}
       {activeTab === 'performans' && (
         <>
@@ -329,7 +323,7 @@ const Analytics = () => {
                     <div style={{ display: 'grid', gap: '10px' }}>
                       {[
                         { label: '📈 S&P 500 alsaydın', value: comparison.sp500, color: '#2563eb' },
-                        { label: '🇹🇷 BIST 100 alsaydın', value: comparison.bist, color: '#dc2626' },
+                        { label: 'BIST 100 alsaydın', value: comparison.bist, color: '#dc2626' },
                         { label: '🥇 Altın alsaydın', value: comparison.gold, color: '#d97706' },
                         { label: '📊 Enflasyona göre olması gereken', value: comparison.inflation, color: '#6b7280' },
                       ].map((item, i) => {
