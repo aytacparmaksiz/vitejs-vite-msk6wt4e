@@ -16,7 +16,7 @@ const ASSET_TYPES = [
 ]
 
 const ASSET_LABELS: Record<string, string> = {
-  hisse: '🇹BIST', usd_hisse: 'ABD', kripto: '₿ Kripto',
+  hisse: 'BIST', usd_hisse: 'ABD', kripto: '₿ Kripto',
   etf: '📈 ETF', doviz: '💱 Döviz', altin: '🥇 Altın', bes: '🏦 BES', vadeli: '💰 Vadeli'
 }
 
@@ -467,63 +467,69 @@ const Assets = () => {
         </div>
       )}
 
-      {/* Varlık Listesi */}
-      <div style={card}>
+{/* Varlık Listesi */}
+<div style={card}>
         <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Mevcut Varlıklar</p>
         {assets.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px 0' }}>
             <p style={{ fontSize: '32px', marginBottom: '8px' }}>📭</p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Henüz varlık eklenmedi</p>
           </div>
-        ) : (
-          assets.map((asset: any, index: number) => {
-            const isManualAsset = ['bes', 'vadeli'].includes(asset.type)
-            const lastValue = asset.manual_values?.[asset.manual_values.length - 1]?.value
-            const TYPE_COLORS: Record<string, string> = {
-              hisse: '#dc2626', usd_hisse: '#2563eb', kripto: '#6366f1',
-              etf: '#d97706', doviz: '#059669', altin: '#ca8a04', bes: '#7c3aed', vadeli: '#0891b2'
-            }
-            const typeColor = TYPE_COLORS[asset.type] || '#6b7280'
+        ) : (() => {
+          const TYPE_COLORS: Record<string, string> = {
+            hisse: '#3487AB', usd_hisse: '#707272', kripto: '#8b5cf6',
+            etf: '#B32132', doviz: '#33622C', altin: '#ECC703', vadeli: '#0891b2'
+          }
+          const groups: Record<string, any[]> = {}
+          assets.forEach(a => { if (!groups[a.type]) groups[a.type] = []; groups[a.type].push(a) })
+
+          return Object.entries(groups).map(([type, items]) => {
+            const typeColor = TYPE_COLORS[type] || '#6b7280'
             return (
-              <div key={asset.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: index < assets.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <div style={{ width: '4px', height: '36px', borderRadius: '2px', background: typeColor, flexShrink: 0 }} />
-                  <div>
-                    <p style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>{asset.name}</p>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '3px' }}>
-                      <span style={{ background: `${typeColor}15`, color: typeColor, padding: '2px 7px', borderRadius: '5px', fontSize: '10px', fontWeight: '700' }}>{ASSET_LABELS[asset.type]}</span>
-                      {asset.symbol ? <span style={{ marginLeft: '6px', fontWeight: '600' }}>{asset.symbol}</span> : ''}
-                      {!isManualAsset ? ` · ${asset.quantity} adet` : ''}
-                    </p>
-                    {!isManualAsset && asset.avg_cost > 0 && (
-                      <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '3px' }}>
-                        Ort: {formatCurrency(asset.avg_cost, asset.type)}
-                      </p>
-                    )}
-                  </div>
+              <div key={type} style={{ marginBottom: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: typeColor }} />
+                  <p style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    {ASSET_LABELS[type]} · {items.length}
+                  </p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {isManualAsset && lastValue && (
-                    <p style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>₺{Number(lastValue).toLocaleString('tr-TR')}</p>
-                  )}
-                  {!isManualAsset && (
-                    <button onClick={() => openTxModal(asset)}
-                      style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)', borderRadius: '8px', color: 'var(--accent)', padding: '6px 12px', fontSize: '12px', fontWeight: '700' }}>
-                      İşlem
-                    </button>
-                  )}
-                  <button onClick={() => handleDelete(asset.id)}
-                    style={{ background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: '8px', color: 'var(--red)', padding: '6px 12px', fontSize: '12px', fontWeight: '700' }}>
-                    Sil
-                  </button>
-                </div>
+
+                {items.map((asset: any, index: number) => {
+                  const isManualAsset = ['bes', 'vadeli'].includes(asset.type)
+                  const lastValue = asset.manual_values?.[asset.manual_values.length - 1]?.value
+                  return (
+                    <div key={asset.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: index < items.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
+                      <div>
+                        <p style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>{asset.name}</p>
+                        <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '2px' }}>
+                          {asset.symbol ? <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>{asset.symbol}</span> : ''}
+                          {!isManualAsset ? ` · ${asset.quantity} adet` : ''}
+                          {!isManualAsset && asset.avg_cost > 0 ? ` · Ort: ${formatCurrency(asset.avg_cost, asset.type)}` : ''}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {isManualAsset && lastValue && (
+                          <p style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>₺{Number(lastValue).toLocaleString('tr-TR')}</p>
+                        )}
+                        {!isManualAsset && (
+                          <button onClick={() => openTxModal(asset)}
+                            style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)', borderRadius: '8px', color: 'var(--accent)', padding: '6px 10px', fontSize: '11px', fontWeight: '700' }}>
+                            İşlem
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(asset.id)}
+                          style={{ background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: '8px', color: 'var(--red)', padding: '6px 10px', fontSize: '11px', fontWeight: '700' }}>
+                          Sil
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )
           })
-        )}
-      </div>
-
-      {/* Alt Navigasyon */}
+        })()}
+      </div>      {/* Alt Navigasyon */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px' }}>
         {[
           { path: '/', icon: '📊', label: 'Portföy' },

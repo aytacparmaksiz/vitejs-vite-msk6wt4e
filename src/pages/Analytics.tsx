@@ -18,12 +18,30 @@ const Analytics = () => {
   const [activeTab, setActiveTab] = useState<'performans' | 'varliklar'>(
     location.pathname === '/analitik-varliklar' ? 'varliklar' : 'performans'
   )
+  const [expandedAssetGroups, setExpandedAssetGroups] = useState<Set<string>>(new Set())
   const [comparison, setComparison] = useState<any | null>(null)
   const [compLoading, setCompLoading] = useState(false)
   const [totalCost, setTotalCost] = useState<number>(0)
   const [firstTxDate, setFirstTxDate] = useState<string>('')
 
   useEffect(() => { refresh(); fetchExtra() }, [])
+  useEffect(() => {
+    if (assets.length > 0 && expandedAssetGroups.size === 0) {
+      const usdRateLocal = prices['USDTRY=X'] || 46.4
+      const filtered = assets.filter(a => !['bes', 'vadeli'].includes(a.type))
+      const groups: Record<string, any[]> = {}
+      filtered.forEach(a => { if (!groups[a.type]) groups[a.type] = []; groups[a.type].push(a) })
+      const sorted = Object.entries(groups).sort((a, b) => {
+        const sumValue = (items: any[]) => items.reduce((s, asset) => {
+          const isU = ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
+          const p = prices[asset.symbol] ?? (asset.avg_cost ? asset.avg_cost * (isU ? usdRateLocal : 1) : 0)
+          return s + p * Number(asset.quantity)
+        }, 0)
+        return sumValue(b[1]) - sumValue(a[1])
+      })
+      if (sorted.length > 0) setExpandedAssetGroups(new Set([sorted[0][0]]))
+    }
+  }, [assets, prices])
   useEffect(() => { if (portfolioId) loadSnapshots(portfolioId, range) }, [range, portfolioId])
 
   const fetchExtra = async () => {
@@ -109,11 +127,24 @@ const Analytics = () => {
           etf: '📈 ETF', doviz: '💱 Döviz', altin: '🥇 Altın'
         }
         const usdRate = prices['USDTRY=X'] || 46.4
+        const TYPE_COLORS: Record<string, string> = {
+          hisse: '#3487AB', usd_hisse: '#707272', kripto: '#8b5cf6',
+          etf: '#B32132', doviz: '#33622C', altin: '#ECC703', vadeli: '#0891b2'
+        }
         const filtered = assets.filter(a => !['bes', 'vadeli'].includes(a.type))
         const groups: Record<string, any[]> = {}
         filtered.forEach(a => {
           if (!groups[a.type]) groups[a.type] = []
           groups[a.type].push(a)
+        })
+        const sortedGroupEntries = Object.entries(groups).sort((a, b) => {
+          const usdRateLocal = usdRate
+          const sumValue = (items: any[]) => items.reduce((s, asset) => {
+            const isU = ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
+            const p = prices[asset.symbol] ?? (asset.avg_cost ? asset.avg_cost * (isU ? usdRateLocal : 1) : 0)
+            return s + p * Number(asset.quantity)
+          }, 0)
+          return sumValue(b[1]) - sumValue(a[1])
         })
 
         return (
@@ -125,15 +156,24 @@ const Analytics = () => {
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Henüz varlık eklenmedi</p>
               </div>
             ) : (
-              Object.entries(groups).map(([type, items]) => {
+              sortedGroupEntries.map(([type, items]) => {
                 const isUSD = ['usd_hisse', 'kripto', 'etf'].includes(type)
+                const isExpanded = expandedAssetGroups.has(type)
                 return (
-                <div key={type} style={{ ...card, marginBottom: '14px' }}>
-                  <p style={{ fontWeight: '700', fontSize: '12px', marginBottom: '14px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    {ASSET_LABELS[type] || type} · {items.length}
-                  </p>
+                <div key={type} style={{ ...card, marginBottom: '12px', borderLeft: `3px solid ${TYPE_COLORS[type] || '#6b7280'}` }}>
+                  <div onClick={() => {
+                      const next = new Set(expandedAssetGroups)
+                      if (next.has(type)) next.delete(type); else next.add(type)
+                      setExpandedAssetGroups(next)
+                    }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', marginBottom: isExpanded ? '14px' : 0 }}>
+                    <p style={{ fontWeight: '800', fontSize: '11px', color: TYPE_COLORS[type] || '#6b7280', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                      {ASSET_LABELS[type] || type} · {items.length} varlık
+                    </p>
+                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                  </div>
 
-                  {items.map((asset: any, index: number) => {
+                  {isExpanded && items.map((asset: any, index: number) => {
                     const livePrice = prices[asset.symbol] ?? (asset.avg_cost ? asset.avg_cost * (isUSD ? usdRate : 1) : 0)
                     const currentValue = livePrice * Number(asset.quantity)
                     const costValueTRY = isUSD ? (asset.avg_cost || 0) * usdRate * Number(asset.quantity) : (asset.avg_cost || 0) * Number(asset.quantity)
@@ -146,13 +186,15 @@ const Analytics = () => {
                     return (
                       <div key={asset.id} style={{ marginBottom: index < items.length - 1 ? '16px' : 0, paddingBottom: index < items.length - 1 ? '16px' : 0, borderBottom: index < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
-                          <div>
-                            <p style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>{asset.name}</p>
-                            <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '1px' }}>{asset.symbol} · {asset.quantity} adet</p>
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                          <div style={{ width: '3px', height: '32px', borderRadius: '2px', background: TYPE_COLORS[type] || '#6b7280', flexShrink: 0, marginTop: '2px' }} />                            <div>
+                              <p style={{ fontWeight: '700', fontSize: '14px', color: '#1e1b4b' }}>{asset.name}</p>
+                              <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '1px' }}>{asset.symbol} · {asset.quantity} adet</p>
+                            </div>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
+                          <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <p style={{ fontSize: '15px', fontWeight: '800', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                              {gain >= 0 ? '+' : ''}₺{Math.abs(gain).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                              {gain >= 0 ? `+₺${Math.abs(gain).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}` : `-₺${Math.abs(gain).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}`}
                             </p>
                             <p style={{ fontSize: '11px', fontWeight: '700', color: gain >= 0 ? 'var(--green)' : 'var(--red)' }}>
                               {gain >= 0 ? '▲' : '▼'} {Math.abs(gainPct).toFixed(2)}%
