@@ -477,7 +477,8 @@ const Assets = () => {
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px' }}>
         {[
           { path: '/', icon: '📊', label: 'Portföy' },
-          { path: '/analitik', icon: '📈', label: 'Analitik' },
+          { path: '/performans', icon: '📈', label: 'Performans' },
+          { path: '/analitik-varliklar', icon: '📋', label: 'Varlıklar' },
           { path: '/varliklar', icon: '➕', label: 'İşlem' },
         ].map(item => (
           <button key={item.path} onClick={() => navigate(item.path)}

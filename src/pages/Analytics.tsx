@@ -3,17 +3,20 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { fetchSnapshots } from '../lib/snapshot'
 import { calculateComparison } from '../lib/comparison'
-import { useNavigate } from 'react-router-dom'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 const Analytics = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [snapshots, setSnapshots] = useState<any[]>([])
   const [portfolioId, setPortfolioId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<number>(30)
-  const [activeTab, setActiveTab] = useState<'performans' | 'varliklar'>('performans')
+  const [activeTab, setActiveTab] = useState<'performans' | 'varliklar'>(
+    location.pathname === '/analitik-varliklar' ? 'varliklar' : 'performans'
+  )  
   const [assets, setAssets] = useState<any[]>([])
   const [prices, setPrices] = useState<Record<string, number>>({})
   const [comparison, setComparison] = useState<any | null>(null)
@@ -115,21 +118,7 @@ const Analytics = () => {
         <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>Portföy performansı</p>
       </div>
 
-      {/* Sekmeler */}
-      <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '12px', padding: '3px', marginBottom: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-        {[
-          { key: 'performans', label: '📈 Performans' },
-          { key: 'varliklar', label: '📊 Varlıklar' },
-        ].map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-            style={{ flex: 1, padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: '700',
-              background: activeTab === tab.key ? 'var(--accent)' : 'none',
-              color: activeTab === tab.key ? 'white' : 'var(--text-secondary)',
-              transition: 'all 0.2s' }}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+
 
       {/* Varlıklar Sekmesi */}
       {activeTab === 'varliklar' && (
@@ -383,12 +372,17 @@ const Analytics = () => {
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px' }}>
         {[
           { path: '/', icon: '📊', label: 'Portföy' },
-          { path: '/analitik', icon: '📈', label: 'Analitik' },
+          { path: '/performans', icon: '📈', label: 'Performans' },
+          { path: '/analitik-varliklar', icon: '📋', label: 'Varlıklar' },
           { path: '/varliklar', icon: '➕', label: 'İşlem' },
         ].map(item => (
-          <button key={item.path} onClick={() => navigate(item.path)}
-            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: '600', padding: '4px 16px' }}>
-            <span style={{ fontSize: '22px' }}>{item.icon}</span>
+          <button key={item.path} onClick={() => {
+              navigate(item.path)
+              if (item.path === '/performans') setActiveTab('performans')
+              if (item.path === '/analitik-varliklar') setActiveTab('varliklar')
+            }}
+            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: '600', padding: '4px 12px' }}>
+            <span style={{ fontSize: '20px' }}>{item.icon}</span>
             {item.label}
           </button>
         ))}
