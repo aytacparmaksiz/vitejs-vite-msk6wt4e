@@ -231,25 +231,13 @@ const Dashboard = () => {
         <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', marginBottom: '8px', fontWeight: '500' }}>Toplam Portföy Değeri</p>
         <p style={{ fontSize: '36px', fontWeight: '800', color: 'white', letterSpacing: '-1px', marginBottom: '4px' }}>{fc(total)}</p>
         <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', marginTop: '4px' }}>{assets.length} varlık</p>
-        <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
-          {totalCost > 0 && (
-            <div style={{ flex: 1, background: 'rgba(255,255,255,0.12)', borderRadius: '12px', padding: '10px 12px' }}>
-              <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginBottom: '3px', fontWeight: '600' }}>TOPLAM GETİRİ</p>
-              <p style={{ fontSize: '14px', fontWeight: '700', color: totalGain >= 0 ? '#a7f3d0' : '#fca5a5' }}>
-                {fp(totalGainPct)} · {fc(totalGain)}
-              </p>
-            </div>
-          )}
-          {dailyChange !== null && (
-            <div style={{ flex: 1, background: 'rgba(255,255,255,0.12)', borderRadius: '12px', padding: '10px 12px' }}>
-              <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginBottom: '3px', fontWeight: '600' }}>BUGÜN</p>
-              <p style={{ fontSize: '14px', fontWeight: '700', color: dailyChange >= 0 ? '#a7f3d0' : '#fca5a5' }}>
-                {dailyChange >= 0 ? '+' : ''}{fc(dailyChange)}
-              </p>
-            </div>
-          )}
-        </div>
-
+        {dailyChange !== null && (
+          <div style={{ display: 'inline-flex', background: 'rgba(255,255,255,0.15)', borderRadius: '10px', padding: '8px 14px', marginTop: '14px' }}>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: dailyChange >= 0 ? '#a7f3d0' : '#fca5a5' }}>
+              Bugün {dailyChange >= 0 ? '+' : ''}{fc(dailyChange)}
+            </p>
+          </div>
+        )}
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginTop: '10px' }}>
           {pricesLoading ? '⏳ Fiyatlar güncelleniyor...' : lastUpdated ? `Son güncelleme: ${lastUpdated.toLocaleTimeString('tr-TR')}` : ''}
         </p>
