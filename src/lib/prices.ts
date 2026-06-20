@@ -100,14 +100,25 @@ if (asset.type === 'hisse') {
       if (price) prices[sym] = price
 
     } else if (asset.type === 'altin') {
-      if (sym === 'TRYG') {
-        // Gram altın: ons fiyatı / 31.1035 * usdtry
-        const xauPrice = await fetchPrice('GC=F')
-        if (xauPrice) prices[sym] = (xauPrice / 31.1035) * usdtry
-      } else {
-        // Ons altın veya diğer
-        const price = await fetchPrice('GC=F')
-        if (price) prices[sym] = price * usdtry
+      const xauPrice = await fetchPrice('GC=F')
+      if (xauPrice) {
+        const gramPrice = (xauPrice / 31.1035) * usdtry
+        const GOLD_GRAMS: Record<string, number> = {
+          TRYG: 1, CEYREK: 1.75, YARIM: 3.5, TAM: 7.0,
+          CUMHURIYET: 7.0, ATA: 7.2,
+        }
+        if (sym === 'XAU') {
+          prices[sym] = xauPrice * usdtry
+        } else if (sym === 'XAG' || sym === 'GRAMGUMUS') {
+          const xagPrice = await fetchPrice('SI=F')
+          if (xagPrice) {
+            prices[sym] = sym === 'XAG' ? xagPrice * usdtry : (xagPrice / 31.1035) * usdtry
+          }
+        } else if (GOLD_GRAMS[sym]) {
+          prices[sym] = gramPrice * GOLD_GRAMS[sym]
+        } else {
+          prices[sym] = gramPrice
+        }
       }
     }
   }))
