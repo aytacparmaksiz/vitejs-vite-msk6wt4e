@@ -29,7 +29,8 @@ const Dashboard = () => {
   const [inviteStatus, setInviteStatus] = useState('')
   const [dailyChange, setDailyChange] = useState<number | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
-
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+ 
   useEffect(() => { fetchAssets() }, [])
 
   const fetchAssets = async () => {
@@ -340,12 +341,17 @@ const Dashboard = () => {
             return (
               <div key={gi} style={{ marginBottom: '8px' }}>
                 {/* Kategori Başlığı */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '10px', marginBottom: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div onClick={() => {
+                    const next = new Set(expandedGroups)
+                    if (next.has(group.type)) next.delete(group.type)
+                    else next.add(group.type)
+                    setExpandedGroups(next)
+                  }}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: '10px', marginBottom: '4px', cursor: 'pointer' }}>                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: COLORS[gi % COLORS.length] }} />
                     <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>{group.label}</span>
                     <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>{group.items.length}</span>
-                  </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', transition: 'transform 0.2s', transform: expandedGroups.has(group.type) ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>                  </div>
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{fc(group.value)}</p>
                     {group.cost > 0 && (
@@ -357,7 +363,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Varlıklar */}
-                {group.items.map((asset: any, ai: number) => {
+                {expandedGroups.has(group.type) && group.items.map((asset: any, ai: number) => {
                   const value = getAssetValue(asset)
                   const cost = getCostValue(asset)
                   const gain = value - cost
