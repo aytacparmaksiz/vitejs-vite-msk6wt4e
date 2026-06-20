@@ -147,7 +147,8 @@ const Dashboard = () => {
   }
 
   const getCostValue = (asset: any) => {
-    if (['bes', 'vadeli'].includes(asset.type)) return getAssetValue(asset)
+    if (asset.type === 'vadeli' && asset.principal) return Number(asset.principal)
+    if (asset.type === 'bes') return getAssetValue(asset)
     const isUSD = ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
     const cost = (asset.avg_cost || 0) * Number(asset.quantity)
     return isUSD ? cost * usdRate : cost
