@@ -176,7 +176,7 @@ const Analytics = () => {
                   {isExpanded && items.map((asset: any, index: number) => {
                     const livePrice = prices[asset.symbol] ?? (asset.avg_cost ? asset.avg_cost * (isUSD ? usdRate : 1) : 0)
                     const currentValue = livePrice * Number(asset.quantity)
-                    const costValueTRY = isUSD ? (asset.avg_cost || 0) * usdRate * Number(asset.quantity) : (asset.avg_cost || 0) * Number(asset.quantity)
+                    const costValueTRY = isUSD && asset.total_try_cost ? Number(asset.total_try_cost) : (isUSD ? (asset.avg_cost || 0) * usdRate * Number(asset.quantity) : (asset.avg_cost || 0) * Number(asset.quantity))
                     const gain = currentValue - costValueTRY
                     const gainPct = costValueTRY > 0 ? (gain / costValueTRY) * 100 : 0
                     const dailyPct = prices[asset.symbol + '_dailypct']

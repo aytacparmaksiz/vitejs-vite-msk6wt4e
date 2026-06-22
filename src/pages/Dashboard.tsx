@@ -116,10 +116,11 @@ const Dashboard = () => {
     if (asset.type === 'vadeli' && asset.principal) return Number(asset.principal)
     if (asset.type === 'bes') return getAssetValue(asset)
     const isUSD = ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
+    if (isUSD && asset.total_try_cost) return Number(asset.total_try_cost)
     const cost = (asset.avg_cost || 0) * Number(asset.quantity)
     return isUSD ? cost * usdRate : cost
   }
-
+  
   const groupByType = () => {
     const groups: Record<string, any> = {}
     assets.forEach(asset => {

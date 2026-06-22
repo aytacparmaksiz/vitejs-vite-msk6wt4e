@@ -6,9 +6,10 @@ export async function addTransaction(
   quantity: number,
   price: number,
   date: string,
-  note?: string
+  note?: string,
+  tryRate?: number,
+  tryTotal?: number
 ) {
-  // İşlemi kaydet
   const { error } = await supabase.from('transactions').insert({
     asset_id: assetId,
     type,
@@ -16,12 +17,13 @@ export async function addTransaction(
     price,
     total: quantity * price,
     transaction_date: date,
-    note: note || null
+    note: note || null,
+    try_rate: tryRate || null,
+    try_total: tryTotal || null
   })
 
   if (error) return { error }
 
-  // Asset istatistiklerini güncelle
   const { error: fnError } = await supabase.rpc('update_asset_stats', {
     p_asset_id: assetId
   })
