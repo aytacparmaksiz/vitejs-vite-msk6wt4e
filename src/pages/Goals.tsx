@@ -180,7 +180,7 @@ const Goals = () => {
 
       <div style={{ paddingTop: '16px', marginBottom: '20px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>🎯 Hedefler</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>$3.000.000 hedefine yolculuk</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>$1.000.000 hedefine yolculuk</p>
       </div>
 
       {/* Hedef Tüpü */}
