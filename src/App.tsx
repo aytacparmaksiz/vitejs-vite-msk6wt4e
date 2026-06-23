@@ -15,14 +15,16 @@ const PrivateRoute = ({ children }: { children: any }) => {
 const AppRoutes = () => {
   const { user } = useAuth()
   return (
-    <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-      <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      <Route path="/varliklar" element={<PrivateRoute><Assets /></PrivateRoute>} />
-      <Route path="/hedefler" element={<PrivateRoute><Goals /></PrivateRoute>} />
-      <Route path="/performans" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-      <Route path="/analitik-varliklar" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-    </Routes>
+<Routes>
+  <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+  <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+  <Route path="/varliklar" element={<PrivateRoute><Assets /></PrivateRoute>} />
+  <Route path="/hedefler" element={<PrivateRoute><Goals /></PrivateRoute>} />
+  
+  {/* Key ekleyerek React'in sayfaları tamamen sıfırlamasını sağlıyoruz */}
+  <Route path="/performans" element={<PrivateRoute><Analytics key="performans" /></PrivateRoute>} />
+  <Route path="/analitik-varliklar" element={<PrivateRoute><Analytics key="analitik" /></PrivateRoute>} />
+</Routes>
   )
 }
 
