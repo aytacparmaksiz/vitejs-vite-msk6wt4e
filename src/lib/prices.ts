@@ -16,77 +16,54 @@ const CRYPTO_IDS: Record<string, string> = {
   LTC: 'litecoin',
 }
 
-async function fetchPriceFull(symbol: string): Promise<{price: number, prevClose: number} | null> {
+async function fetchPrice(symbol: string): Promise<number | null> {
   try {
-    const res = await fetch(`${API_BASE}?symbol=${encodeURIComponent(symbol)}`)
+    const res = await fetch(`${API_BASE}?symbol=${symbol}`)
     const data = await res.json()
-    if (!data?.price) return null
-    return { price: Number(data.price), prevClose: Number(data.prevClose || data.price) }
+    return data?.price ? Number(data.price) : null
   } catch {
     return null
   }
 }
 
-async function fetchPrice(symbol: string): Promise<number | null> {
-  const r = await fetchPriceFull(symbol)
-  return r?.price ?? null
+export async function fetchCryptoPrice(symbol: string): Promise<number | null> {
+  try {
+    const id = CRYPTO_IDS[symbol.toUpperCase()]
+    if (!id) return null
+    const res = await fetch(`${COINGECKO}/simple/price?ids=${id}&vs_currencies=try`)
+    const data = await res.json()
+    return data?.[id]?.try ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function fetchAllPrices(assets: any[]): Promise<Record<string, number>> {
   const prices: Record<string, number> = {}
 
   // Önce USD/TRY kuru al
-  const usdtry = await fetchPrice('USDTRY=X') ?? 46.4
-  prices['USDTRY=X'] = usdtry
+  const usdtry = await fetchPrice('USDTRY=X') ?? 38
 
-  // Kripto varlıkları topla ve TEK seferde sorgula
-  const kriptoAssets = assets.filter(a => a.type === 'kripto' && a.symbol)
-  const kriptoIdMap: Record<string, string> = {} // id -> sym
-  kriptoAssets.forEach(a => {
-    const sym = a.symbol.toUpperCase()
-    const id = a.coingecko_id || CRYPTO_IDS[sym]
-    if (id) kriptoIdMap[id] = sym
-  })
-
-  const kriptoIds = Object.keys(kriptoIdMap)
-  if (kriptoIds.length > 0) {
-    try {
-      const res = await fetch(`${COINGECKO}/simple/price?ids=${kriptoIds.join(',')}&vs_currencies=try,usd&include_24hr_change=true`)
-      const data = await res.json()
-      Object.entries(kriptoIdMap).forEach(([id, sym]) => {
-        if (data?.[id]?.try) prices[sym] = data[id].try
-        if (data?.[id]?.usd) prices[sym + '_usd'] = data[id].usd
-        if (data?.[id]?.try_24h_change !== undefined) prices[sym + '_dailypct'] = data[id].try_24h_change
-      })
-    } catch {}
-  }
-
-  // Diğer varlık türleri (paralel)
   await Promise.all(assets.map(async (asset) => {
     if (!asset.symbol) return
     const sym = asset.symbol.toUpperCase()
 
     if (asset.type === 'hisse') {
-      let r = await fetchPriceFull(`${sym}.IS`)
-      if (!r) r = await fetchPriceFull(`${sym}.E.IS`)
-      if (r) {
-        prices[sym] = r.price
-        prices[sym + '_dailypct'] = r.prevClose ? ((r.price - r.prevClose) / r.prevClose) * 100 : 0
-      }
+      let price = await fetchPrice(`${sym}.IS`)
+      if (!price) price = await fetchPrice(`${sym}.E.IS`)
+      if (price) prices[sym] = price
 
     } else if (asset.type === 'usd_hisse') {
-      const r = await fetchPriceFull(sym)
-      if (r) {
-        prices[sym] = r.price * usdtry
-        prices[sym + '_dailypct'] = r.prevClose ? ((r.price - r.prevClose) / r.prevClose) * 100 : 0
-      }
+      const usdPrice = await fetchPrice(sym)
+      if (usdPrice) prices[sym] = usdPrice * usdtry
 
     } else if (asset.type === 'etf') {
-      const r = await fetchPriceFull(sym)
-      if (r) {
-        prices[sym] = r.price * usdtry
-        prices[sym + '_dailypct'] = r.prevClose ? ((r.price - r.prevClose) / r.prevClose) * 100 : 0
-      }
+      const usdPrice = await fetchPrice(sym)
+      if (usdPrice) prices[sym] = usdPrice * usdtry
+
+    } else if (asset.type === 'kripto') {
+      const price = await fetchCryptoPrice(sym)
+      if (price) prices[sym] = price
 
     } else if (asset.type === 'doviz') {
       const dovizMap: Record<string, string> = {
@@ -99,22 +76,23 @@ export async function fetchAllPrices(assets: any[]): Promise<Record<string, numb
     } else if (asset.type === 'altin') {
       const xauPrice = await fetchPrice('GC=F')
       if (xauPrice) {
-        const gramPrice = (xauPrice / 31.1035) * usdtry
-        const GOLD_GRAMS: Record<string, number> = {
-          TRYG: 1, CEYREK: 1.75, YARIM: 3.5, TAM: 7.0,
-          CUMHURIYET: 7.0, ATA: 7.2,
-        }
-        if (sym === 'XAU') {
-          prices[sym] = xauPrice * usdtry
-        } else if (sym === 'XAG' || sym === 'GRAMGUMUS') {
-          const xagPrice = await fetchPrice('SI=F')
-          if (xagPrice) {
-            prices[sym] = sym === 'XAG' ? xagPrice * usdtry : (xagPrice / 31.1035) * usdtry
-          }
-        } else if (GOLD_GRAMS[sym]) {
-          prices[sym] = gramPrice * GOLD_GRAMS[sym]
+        // Gram Altın (24 Ayar Has Altın) fiyatını hesapla
+        const gramGoldPrice = (xauPrice / 31.1035) * usdtry
+
+        if (sym === 'TRYG') {
+          prices[sym] = gramGoldPrice
+        } else if (sym === 'CEYREK') {
+          prices[sym] = gramGoldPrice * 1.6065
+        } else if (sym === 'YARIM') {
+          prices[sym] = gramGoldPrice * 3.2130
+        } else if (sym === 'TAM') {
+          prices[sym] = gramGoldPrice * 6.4260
+        } else if (sym === 'CUMHURIYET' || sym === 'ATA') {
+          prices[sym] = gramGoldPrice * 7.2160
+        } else if (sym === 'XAU') {
+          prices[sym] = xauPrice
         } else {
-          prices[sym] = gramPrice
+          prices[sym] = xauPrice * usdtry
         }
       }
     }

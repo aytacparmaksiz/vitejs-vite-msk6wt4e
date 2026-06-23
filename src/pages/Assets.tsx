@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { usePortfolio } from '../context/PortfolioContext'
 import { supabase } from '../lib/supabase'
 import { addTransaction, fetchTransactions } from '../lib/transactions'
-import { useNavigate } from 'react-router-dom'
-import { usePortfolio } from '../context/PortfolioContext'
 import { fetchHistoricalRate } from '../lib/historicalRate'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 const ASSET_TYPES = [
-  { value: 'hisse', label: 'BIST Hisse', hasSymbol: true, symbolPlaceholder: 'THYAO, GARAN...', currency: 'TRY' },
-  { value: 'usd_hisse', label: 'ABD Hisse', hasSymbol: true, symbolPlaceholder: 'AAPL, TSLA...', currency: 'USD' },
+  { value: 'hisse', label: '🇹🇷 BIST Hisse', hasSymbol: true, symbolPlaceholder: 'THYAO, GARAN...', currency: 'TRY' },
+  { value: 'usd_hisse', label: '🇺🇸 ABD Hisse', hasSymbol: true, symbolPlaceholder: 'AAPL, TSLA...', currency: 'USD' },
   { value: 'kripto', label: '₿ Kripto', hasSymbol: true, symbolPlaceholder: 'BTC, ETH...', currency: 'USD' },
   { value: 'etf', label: '📈 ETF', hasSymbol: true, symbolPlaceholder: 'SPY, QQQ...', currency: 'USD' },
   { value: 'doviz', label: '💱 Döviz', hasSymbol: true, symbolPlaceholder: 'USD, EUR, GBP...', currency: 'TRY' },
-  { value: 'altin', label: '🥇 Altın', hasSymbol: true, symbolPlaceholder: 'TRYG (gram), XAU (ons)...', currency: 'TRY' },
+  { value: 'altin', label: '🥇 Altın', hasSymbol: true, symbolPlaceholder: 'TRYG, CEYREK...', currency: 'TRY' },
   { value: 'bes', label: '🏦 BES', hasSymbol: false, currency: 'TRY' },
   { value: 'vadeli', label: '💰 Vadeli Mevduat', hasSymbol: false, currency: 'TRY' },
 ]
 
 const ASSET_LABELS: Record<string, string> = {
-  hisse: 'BIST', usd_hisse: 'ABD', kripto: '₿ Kripto',
+  hisse: '🇹🇷 BIST', usd_hisse: '🇺🇸 ABD', kripto: '₿ Kripto',
   etf: '📈 ETF', doviz: '💱 Döviz', altin: '🥇 Altın', bes: '🏦 BES', vadeli: '💰 Vadeli'
 }
 
@@ -26,6 +26,7 @@ const Assets = () => {
   const { user } = useAuth()
   const { refresh, prices } = usePortfolio()
   const navigate = useNavigate()
+  const location = useLocation()
   const [assets, setAssets] = useState<any[]>([])
   const [portfolioId, setPortfolioId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -72,6 +73,7 @@ const Assets = () => {
   const selectedType = ASSET_TYPES.find(t => t.value === form.type)
   const isManual = ['bes', 'vadeli'].includes(form.type)
   const isVadeli = form.type === 'vadeli'
+  const isUSD = (type: string) => ['usd_hisse', 'kripto', 'etf'].includes(type)
 
   const handleSymbolSearch = async (value: string) => {
     setForm({ ...form, symbol: value })
@@ -138,6 +140,7 @@ const Assets = () => {
     setSearchResults(filtered.slice(0, 5))
     setSearching(false)
   }
+
   const handleSave = async () => {
     setError('')
     if (!form.name) return setError('Varlık adı zorunludur.')
@@ -177,7 +180,6 @@ const Assets = () => {
     } else if (form.quantity && form.avg_cost) {
       const isUsdType = isUSD(form.type)
       if (isUsdType) {
-        // form.avg_cost burada artık TOPLAM ödenen TRY tutarı
         const historicalRate = await fetchHistoricalRate(form.txDate)
         const currentRate = historicalRate || prices['USDTRY=X'] || (form.manualRate ? Number(form.manualRate) : null)
         if (!currentRate) {
@@ -195,7 +197,8 @@ const Assets = () => {
     }
 
     setSuccess('Varlık başarıyla eklendi!')
-    setForm({ type: 'hisse', name: '', symbol: '', quantity: '', avg_cost: '', manual_value: '' })
+    setForm({ type: 'hisse', name: '', symbol: '', quantity: '', avg_cost: '', manual_value: '', interest_rate: '', maturity_days: '', coingecko_id: '', start_date: new Date().toISOString().split('T')[0], txDate: new Date().toISOString().split('T')[0], manualRate: '' })
+    setRateNotFound(false)
     setShowForm(false)
     fetchData()
     refresh(true)
@@ -213,7 +216,8 @@ const Assets = () => {
   const openTxModal = async (asset: any) => {
     setTxAsset(asset)
     setTxType('buy')
-    setTxForm({ quantity: '', price: '', tryTotal: '', date: new Date().toISOString().split('T')[0], note: '' })
+    setTxForm({ quantity: '', price: '', tryTotal: '', date: new Date().toISOString().split('T')[0], note: '', manualRate: '' })
+    setTxRateNotFound(false)
     setTxError('')
     const history = await fetchTransactions(asset.id)
     setTxHistory(history)
@@ -256,7 +260,8 @@ const Assets = () => {
 
     const history = await fetchTransactions(txAsset.id)
     setTxHistory(history)
-    setTxForm({ quantity: '', price: '', tryTotal: '', date: new Date().toISOString().split('T')[0], note: '' })
+    setTxForm({ quantity: '', price: '', tryTotal: '', date: new Date().toISOString().split('T')[0], note: '', manualRate: '' })
+    setTxRateNotFound(false)
     setTxSaving(false)
     fetchData()
     refresh(true)
@@ -264,7 +269,6 @@ const Assets = () => {
     setTimeout(() => setSuccess(''), 3000)
   }
 
-  const isUSD = (type: string) => ['usd_hisse', 'kripto', 'etf'].includes(type)
   const formatCurrency = (val: number, type?: string) =>
     type && isUSD(type)
       ? `$${Number(val).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
@@ -313,7 +317,6 @@ const Assets = () => {
               Mevcut: <strong>{txAsset.quantity} adet</strong> · Ort: <strong>{formatCurrency(txAsset.avg_cost, txAsset.type)}</strong>
             </p>
 
-            {/* Alım/Satım Toggle */}
             <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: '12px', padding: '3px', marginBottom: '20px', border: '1px solid var(--border)' }}>
               <button onClick={() => setTxType('buy')}
                 style={{ flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: '700', background: txType === 'buy' ? 'var(--green)' : 'none', color: txType === 'buy' ? 'white' : 'var(--text-secondary)', transition: 'all 0.2s' }}>
@@ -326,27 +329,26 @@ const Assets = () => {
             </div>
 
             {isUSD(txAsset.type) ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>Adet</label>
-                  <input type="number" value={txForm.quantity} onChange={e => setTxForm({ ...txForm, quantity: e.target.value })}
-                    placeholder="100"
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--accent)' }}>
-                    {txType === 'buy' ? 'Ödediğin TRY' : 'Aldığın TRY'}
-                  </label>
-                  <input type="number" value={txForm.tryTotal} onChange={e => setTxForm({ ...txForm, tryTotal: e.target.value })}
-                    placeholder="örn. 24200"
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--accent)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>Adet</label>
+                    <input type="number" value={txForm.quantity} onChange={e => setTxForm({ ...txForm, quantity: e.target.value })}
+                      placeholder="100" style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--accent)' }}>
+                      {txType === 'buy' ? 'Ödediğin TRY' : 'Aldığın TRY'}
+                    </label>
+                    <input type="number" value={txForm.tryTotal} onChange={e => setTxForm({ ...txForm, tryTotal: e.target.value })}
+                      placeholder="örn. 24200" style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--accent)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+                  </div>
                 </div>
                 {txRateNotFound && (
-                  <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ marginBottom: '10px' }}>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--accent)' }}>O Tarihteki USD/TRY Kuru (manuel)</label>
                     <input type="number" value={txForm.manualRate} onChange={e => setTxForm({ ...txForm, manualRate: e.target.value })}
-                      placeholder="örn. 44.20"
-                      style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--accent)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+                      placeholder="örn. 44.20" style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--accent)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
                   </div>
                 )}
               </div>
@@ -355,17 +357,16 @@ const Assets = () => {
                 <div>
                   <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>Adet</label>
                   <input type="number" value={txForm.quantity} onChange={e => setTxForm({ ...txForm, quantity: e.target.value })}
-                    placeholder="100"
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+                    placeholder="100" style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>Birim Fiyat (₺)</label>
                   <input type="number" value={txForm.price} onChange={e => setTxForm({ ...txForm, price: e.target.value })}
-                    placeholder="250"
-                    style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
+                    placeholder="250" style={{ width: '100%', padding: '10px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px' }} />
                 </div>
               </div>
             )}
+
             <div style={{ marginBottom: '10px' }}>
               <label style={labelStyle}>Tarih</label>
               <input type="date" value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })} style={inputStyle} />
@@ -375,15 +376,6 @@ const Assets = () => {
               <label style={labelStyle}>Not (opsiyonel)</label>
               <input type="text" value={txForm.note} onChange={e => setTxForm({ ...txForm, note: e.target.value })} placeholder="Örn: Uzun vadeli alım" style={inputStyle} />
             </div>
-
-            {txForm.quantity && txForm.price && (
-              <div style={{ background: txType === 'buy' ? 'var(--green-dim)' : 'var(--red-dim)', border: `1px solid ${txType === 'buy' ? 'var(--green)' : 'var(--red)'}`, borderRadius: '10px', padding: '12px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>Toplam Tutar</span>
-                <span style={{ fontSize: '16px', fontWeight: '800', color: txType === 'buy' ? 'var(--green)' : 'var(--red)' }}>
-                  {formatCurrency(Number(txForm.quantity) * Number(txForm.price), txAsset.type)}
-                </span>
-              </div>
-            )}
 
             {txError && (
               <div style={{ background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: '10px', padding: '10px', marginBottom: '12px', color: 'var(--red)', fontSize: '13px', fontWeight: '600' }}>
@@ -497,6 +489,7 @@ const Assets = () => {
               )}
             </div>
           )}
+
           {isManual ? (
             <div>
               <div style={{ marginBottom: '12px' }}>
@@ -516,16 +509,10 @@ const Assets = () => {
                     </div>
                   </div>
                   <div style={{ marginBottom: '12px' }}>
-                  <label style={labelStyle}>İşlem Tarihi</label>
-                  <input type="date" value={form.txDate} onChange={e => setForm({ ...form, txDate: e.target.value })} style={inputStyle} />
-                </div>
-                {rateNotFound && (
-                  <div style={{ marginBottom: '12px' }}>
-                    <label style={{ ...labelStyle, color: 'var(--accent)' }}>O Tarihteki USD/TRY Kuru (manuel)</label>
-                    <input type="number" value={form.manualRate} onChange={e => setForm({ ...form, manualRate: e.target.value })} placeholder="örn. 44.20" style={{ ...inputStyle, border: '1px solid var(--accent)' }} />
+                    <label style={labelStyle}>Başlangıç Tarihi</label>
+                    <input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} style={inputStyle} />
                   </div>
-                )}
-              </div>
+                </div>
               )}
             </div>
           ) : (
@@ -545,6 +532,12 @@ const Assets = () => {
                   <label style={labelStyle}>İşlem Tarihi</label>
                   <input type="date" value={form.txDate} onChange={e => setForm({ ...form, txDate: e.target.value })} style={inputStyle} />
                 </div>
+                {rateNotFound && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ ...labelStyle, color: 'var(--accent)' }}>O Tarihteki USD/TRY Kuru (manuel)</label>
+                    <input type="number" value={form.manualRate} onChange={e => setForm({ ...form, manualRate: e.target.value })} placeholder="örn. 44.20" style={{ ...inputStyle, border: '1px solid var(--accent)' }} />
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
@@ -573,8 +566,8 @@ const Assets = () => {
         </div>
       )}
 
-{/* Varlık Listesi */}
-<div style={card}>
+      {/* Varlık Listesi */}
+      <div style={card}>
         <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Mevcut Varlıklar</p>
         {assets.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px 0' }}>
@@ -610,7 +603,8 @@ const Assets = () => {
                         <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '2px' }}>
                           {asset.symbol ? <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>{asset.symbol}</span> : ''}
                           {!isManualAsset ? ` · ${asset.quantity} adet` : ''}
-                          {!isManualAsset && asset.avg_cost > 0 ? ` · Ort: ${formatCurrency(asset.avg_cost, asset.type)}` : ''}                    </p>
+                          {!isManualAsset && asset.avg_cost > 0 ? ` · Ort: ${formatCurrency(asset.avg_cost, asset.type)}` : ''}
+                        </p>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {isManualAsset && lastValue && (
@@ -634,17 +628,20 @@ const Assets = () => {
             )
           })
         })()}
-      </div>      {/* Alt Navigasyon */}
+      </div>
+
+      {/* Alt Navigasyon */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px' }}>
         {[
           { path: '/', icon: '📊', label: 'Portföy' },
           { path: '/performans', icon: '📈', label: 'Performans' },
           { path: '/analitik-varliklar', icon: '📋', label: 'Varlıklar' },
           { path: '/varliklar', icon: '➕', label: 'İşlem' },
+          { path: '/hedefler', icon: '🎯', label: 'Hedefler' },
         ].map(item => (
           <button key={item.path} onClick={() => navigate(item.path)}
-            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: '600', padding: '4px 16px' }}>
-            <span style={{ fontSize: '22px' }}>{item.icon}</span>
+            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: '600', padding: '4px 8px' }}>
+            <span style={{ fontSize: '18px' }}>{item.icon}</span>
             {item.label}
           </button>
         ))}

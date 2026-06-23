@@ -9,7 +9,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 
 const Analytics = () => {
   const { user } = useAuth()
-  const { assets, prices, loading: portfolioLoading, portfolioId, refresh } = usePortfolio()
+  const { assets, prices, portfolioId, refresh } = usePortfolio()
   const navigate = useNavigate()
   const location = useLocation()
   const [snapshots, setSnapshots] = useState<any[]>([])
@@ -18,13 +18,15 @@ const Analytics = () => {
   const [activeTab, setActiveTab] = useState<'performans' | 'varliklar'>(
     location.pathname === '/analitik-varliklar' ? 'varliklar' : 'performans'
   )
-  const [expandedAssetGroups, setExpandedAssetGroups] = useState<Set<string>>(new Set())
   const [comparison, setComparison] = useState<any | null>(null)
   const [compLoading, setCompLoading] = useState(false)
   const [totalCost, setTotalCost] = useState<number>(0)
   const [firstTxDate, setFirstTxDate] = useState<string>('')
+  const [expandedAssetGroups, setExpandedAssetGroups] = useState<Set<string>>(new Set())
 
   useEffect(() => { refresh(); fetchExtra() }, [])
+  useEffect(() => { if (portfolioId) loadSnapshots(portfolioId, range) }, [range, portfolioId])
+
   useEffect(() => {
     if (assets.length > 0 && expandedAssetGroups.size === 0) {
       const usdRateLocal = prices['USDTRY=X'] || 46.4
@@ -42,7 +44,6 @@ const Analytics = () => {
       if (sorted.length > 0) setExpandedAssetGroups(new Set([sorted[0][0]]))
     }
   }, [assets, prices])
-  useEffect(() => { if (portfolioId) loadSnapshots(portfolioId, range) }, [range, portfolioId])
 
   const fetchExtra = async () => {
     if (!user) return
@@ -119,7 +120,7 @@ const Analytics = () => {
         <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Analitik</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '2px' }}>Portföy performansı</p>
       </div>
-      
+
       {/* Varlıklar Sekmesi */}
       {activeTab === 'varliklar' && (() => {
         const ASSET_LABELS: Record<string, string> = {
@@ -128,8 +129,8 @@ const Analytics = () => {
         }
         const usdRate = prices['USDTRY=X'] || 46.4
         const TYPE_COLORS: Record<string, string> = {
-          hisse: '#3487AB', usd_hisse: '#707272', kripto: '#8b5cf6',
-          etf: '#B32132', doviz: '#33622C', altin: '#ECC703', vadeli: '#0891b2'
+          hisse: '#35D6ED', usd_hisse: '#1A224C', kripto: '#8b5cf6',
+          etf: '#f59e0b', doviz: '#10b981', altin: '#ECC703', vadeli: '#0891b2'
         }
         const filtered = assets.filter(a => !['bes', 'vadeli'].includes(a.type))
         const groups: Record<string, any[]> = {}
@@ -138,10 +139,9 @@ const Analytics = () => {
           groups[a.type].push(a)
         })
         const sortedGroupEntries = Object.entries(groups).sort((a, b) => {
-          const usdRateLocal = usdRate
           const sumValue = (items: any[]) => items.reduce((s, asset) => {
             const isU = ['usd_hisse', 'kripto', 'etf'].includes(asset.type)
-            const p = prices[asset.symbol] ?? (asset.avg_cost ? asset.avg_cost * (isU ? usdRateLocal : 1) : 0)
+            const p = prices[asset.symbol] ?? (asset.avg_cost ? asset.avg_cost * (isU ? usdRate : 1) : 0)
             return s + p * Number(asset.quantity)
           }, 0)
           return sumValue(b[1]) - sumValue(a[1])
@@ -186,11 +186,13 @@ const Analytics = () => {
                     const unitPriceDisplay = isUSD
                       ? `$${(livePrice / usdRate).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
                       : `₺${livePrice.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}`
+
                     return (
                       <div key={asset.id} style={{ marginBottom: index < items.length - 1 ? '16px' : 0, paddingBottom: index < items.length - 1 ? '16px' : 0, borderBottom: index < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
                           <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                          <div style={{ width: '3px', height: '32px', borderRadius: '2px', background: TYPE_COLORS[type] || '#6b7280', flexShrink: 0, marginTop: '2px' }} />                            <div>
+                            <div style={{ width: '3px', height: '32px', borderRadius: '2px', background: TYPE_COLORS[type] || '#6b7280', flexShrink: 0, marginTop: '2px' }} />
+                            <div>
                               <p style={{ fontWeight: '700', fontSize: '14px', color: '#1e1b4b' }}>{asset.name}</p>
                               <p style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginTop: '1px' }}>{asset.symbol} · {asset.quantity} adet</p>
                             </div>
@@ -206,7 +208,7 @@ const Analytics = () => {
                         </div>
 
                         <div style={{ display: 'flex', gap: '0', borderTop: '1px solid var(--border-light)', paddingTop: '10px' }}>
-                        <div style={{ flex: 1 }}>
+                          <div style={{ flex: 1 }}>
                             <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: '700', marginBottom: '3px' }}>MALİYET</p>
                             <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>₺{costValueTRY.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</p>
                             <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{unitCostDisplay}</p>
@@ -248,7 +250,6 @@ const Analytics = () => {
             </div>
           ) : (
             <>
-              {/* Özet Kartlar */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                 {[
                   { label: 'Başlangıç', value: fc(first), color: 'var(--text-primary)' },
@@ -264,7 +265,6 @@ const Analytics = () => {
                 ))}
               </div>
 
-              {/* Zaman Aralığı */}
               <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
                 {ranges.map(r => (
                   <button key={r.value} onClick={() => setRange(r.value)}
@@ -278,7 +278,6 @@ const Analytics = () => {
                 ))}
               </div>
 
-              {/* Büyüme Grafiği */}
               <div style={{ ...card, marginBottom: '16px' }}>
                 <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Portföy Büyümesi</p>
                 <ResponsiveContainer width="100%" height={200}>
@@ -302,7 +301,6 @@ const Analytics = () => {
                 </ResponsiveContainer>
               </div>
 
-              {/* Kar/Zarar Grafiği */}
               <div style={{ ...card, marginBottom: '16px' }}>
                 <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Kar/Zarar Performansı</p>
                 <ResponsiveContainer width="100%" height={180}>
@@ -322,7 +320,6 @@ const Analytics = () => {
                 </ResponsiveContainer>
               </div>
 
-              {/* Getiri Karşılaştırma */}
               {totalCost > 0 && firstTxDate && (
                 <div style={{ ...card, marginBottom: '16px' }}>
                   <div style={{ marginBottom: '12px' }}>
@@ -433,14 +430,11 @@ const Analytics = () => {
           { path: '/performans', icon: '📈', label: 'Performans' },
           { path: '/analitik-varliklar', icon: '📋', label: 'Varlıklar' },
           { path: '/varliklar', icon: '➕', label: 'İşlem' },
+          { path: '/hedefler', icon: '🎯', label: 'Hedefler' },
         ].map(item => (
-          <button key={item.path} onClick={() => {
-              navigate(item.path)
-              if (item.path === '/performans') setActiveTab('performans')
-              if (item.path === '/analitik-varliklar') setActiveTab('varliklar')
-            }}
-            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: '600', padding: '4px 12px' }}>
-            <span style={{ fontSize: '20px' }}>{item.icon}</span>
+          <button key={item.path} onClick={() => navigate(item.path)}
+            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: '600', padding: '4px 8px' }}>
+            <span style={{ fontSize: '18px' }}>{item.icon}</span>
             {item.label}
           </button>
         ))}

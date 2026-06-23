@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Assets from './pages/Assets'
 import Analytics from './pages/Analytics'
+import Goals from './pages/Goals'
 
 const PrivateRoute = ({ children }: { children: any }) => {
   const { user } = useAuth()
@@ -18,6 +19,7 @@ const AppRoutes = () => {
       <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
       <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/varliklar" element={<PrivateRoute><Assets /></PrivateRoute>} />
+      <Route path="/hedefler" element={<PrivateRoute><Goals /></PrivateRoute>} />
       <Route path="/performans" element={<PrivateRoute><Analytics /></PrivateRoute>} />
       <Route path="/analitik-varliklar" element={<PrivateRoute><Analytics /></PrivateRoute>} />
     </Routes>

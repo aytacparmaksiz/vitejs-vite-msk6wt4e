@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { usePortfolio } from '../context/PortfolioContext'
 import { supabase } from '../lib/supabase'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 const COLORS = ['#6366f1', '#059669', '#d97706', '#dc2626', '#2563eb', '#7c3aed', '#0891b2']
@@ -16,6 +16,7 @@ const Dashboard = () => {
   const { user, signOut } = useAuth()
   const { assets, prices, loading, pricesLoading, lastUpdated, portfolioId, refresh } = usePortfolio()
   const navigate = useNavigate()
+  const location = useLocation()
   const [displayCurrency, setDisplayCurrency] = useState<'TRY' | 'USD'>('TRY')
   const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -25,6 +26,30 @@ const Dashboard = () => {
   const [dailyChange, setDailyChange] = useState<number | null>(null)
   const [pullDistance, setPullDistance] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => { refresh() }, [])
+
+  useEffect(() => {
+    const calcDaily = async () => {
+      if (!portfolioId || assets.length === 0) return
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yStr = yesterday.toISOString().split('T')[0]
+
+      const { data: ySnap } = await supabase
+        .from('portfolio_snapshots')
+        .select('total_value')
+        .eq('portfolio_id', portfolioId)
+        .eq('snapshot_date', yStr)
+        .single()
+
+      if (ySnap) {
+        const todayVal = assets.reduce((sum: number, a: any) => sum + getAssetValue(a), 0)
+        setDailyChange(todayVal - Number(ySnap.total_value))
+      }
+    }
+    calcDaily()
+  }, [assets, prices, portfolioId])
 
   useEffect(() => {
     let startY = 0
@@ -57,30 +82,6 @@ const Dashboard = () => {
       window.removeEventListener('touchend', onTouchEnd)
     }
   }, [pullDistance])
-
-  useEffect(() => { refresh() }, [])
-
-  useEffect(() => {
-    const calcDaily = async () => {
-      if (!portfolioId || assets.length === 0) return
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const yStr = yesterday.toISOString().split('T')[0]
-
-      const { data: ySnap } = await supabase
-        .from('portfolio_snapshots')
-        .select('total_value')
-        .eq('portfolio_id', portfolioId)
-        .eq('snapshot_date', yStr)
-        .single()
-
-      if (ySnap) {
-        const todayVal = assets.reduce((sum: number, a: any) => sum + getAssetValue(a), 0)
-        setDailyChange(todayVal - Number(ySnap.total_value))
-      }
-    }
-    calcDaily()
-  }, [assets, prices, portfolioId])
 
   const usdRate = prices['USDTRY=X'] || 46.4
 
@@ -120,7 +121,7 @@ const Dashboard = () => {
     const cost = (asset.avg_cost || 0) * Number(asset.quantity)
     return isUSD ? cost * usdRate : cost
   }
-  
+
   const groupByType = () => {
     const groups: Record<string, any> = {}
     assets.forEach(asset => {
@@ -168,13 +169,16 @@ const Dashboard = () => {
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', padding: '16px', paddingBottom: '90px', background: 'var(--bg-primary)', minHeight: '100vh' }}>
-     {(pullDistance > 0 || refreshing) && (
+
+      {(pullDistance > 0 || refreshing) && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: `${refreshing ? 50 : pullDistance}px`, transition: refreshing ? 'none' : 'height 0.1s', overflow: 'hidden' }}>
           <span style={{ fontSize: '13px', color: 'var(--accent)', fontWeight: '600' }}>
             {refreshing ? '⏳ Yenileniyor...' : pullDistance > 60 ? '↓ Bırak ve yenile' : '↓ Çek'}
           </span>
         </div>
-      )} 
+      )}
+
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingTop: '16px' }}>
         <div>
           <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>Kumbaram</h1>
@@ -197,6 +201,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Ana Değer Kartı */}
       <div style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', borderRadius: '20px', padding: '24px', marginBottom: '16px', boxShadow: '0 8px 32px rgba(99,102,241,0.3)' }}>
         <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', marginBottom: '8px', fontWeight: '500' }}>Toplam Portföy Değeri</p>
         <p style={{ fontSize: '36px', fontWeight: '800', color: 'white', letterSpacing: '-1px', marginBottom: '4px' }}>{fc(total)}</p>
@@ -215,10 +220,11 @@ const Dashboard = () => {
         </p>
       </div>
 
+      {/* 3 Metrik Kart */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-        <div style={{ ...card, padding: '14px' }}>
+        <div style={{ ...card, padding: '14px', minWidth: 0 }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '10px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Yatırılan</p>
-          <p style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>{fc(totalCost)}</p>
+          <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fc(totalCost)}</p>
         </div>
         <div style={{ ...card, padding: '14px', minWidth: 0 }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '10px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Kar/Zarar</p>
@@ -226,14 +232,15 @@ const Dashboard = () => {
             {totalGain >= 0 ? '+' : ''}{fc(totalGain)}
           </p>
         </div>
-        <div style={{ ...card, padding: '14px' }}>
+        <div style={{ ...card, padding: '14px', minWidth: 0 }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '10px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Getiri</p>
-          <p style={{ fontSize: '15px', fontWeight: '700', color: totalGainPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+          <p style={{ fontSize: '13px', fontWeight: '700', color: totalGainPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
             {fp(totalGainPct)}
           </p>
         </div>
       </div>
 
+      {/* Dağılım */}
       {pieData.length > 0 && (
         <div style={{ ...card, marginBottom: '16px' }}>
           <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Dağılım</p>
@@ -294,6 +301,7 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* Portföy Listesi */}
       <div style={{ ...card, marginBottom: '16px' }}>
         <p style={{ fontWeight: '700', fontSize: '15px', marginBottom: '16px', color: 'var(--text-primary)' }}>Portföy</p>
         {pieData.length === 0 ? (
@@ -372,11 +380,13 @@ const Dashboard = () => {
         )}
       </div>
 
+      {/* Yenile */}
       <button onClick={() => refresh(true)} disabled={pricesLoading}
         style={{ width: '100%', padding: '13px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', color: pricesLoading ? 'var(--text-tertiary)' : 'var(--accent)', fontSize: '14px', fontWeight: '600', marginBottom: '12px', boxShadow: 'var(--shadow)', transition: 'all 0.2s' }}>
         {pricesLoading ? '⏳ Güncelleniyor...' : '🔄 Fiyatları Yenile'}
       </button>
 
+      {/* Davet */}
       <div style={{ ...card, marginBottom: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -407,16 +417,18 @@ const Dashboard = () => {
         )}
       </div>
 
+      {/* Alt Navigasyon */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-around', padding: '10px 0 16px' }}>
         {[
           { path: '/', icon: '📊', label: 'Portföy' },
           { path: '/performans', icon: '📈', label: 'Performans' },
           { path: '/analitik-varliklar', icon: '📋', label: 'Varlıklar' },
           { path: '/varliklar', icon: '➕', label: 'İşlem' },
+          { path: '/hedefler', icon: '🎯', label: 'Hedefler' },
         ].map(item => (
           <button key={item.path} onClick={() => navigate(item.path)}
-            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: '600', padding: '4px 12px' }}>
-            <span style={{ fontSize: '20px' }}>{item.icon}</span>
+            style={{ background: 'none', color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: '600', padding: '4px 8px' }}>
+            <span style={{ fontSize: '18px' }}>{item.icon}</span>
             {item.label}
           </button>
         ))}
